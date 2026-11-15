@@ -829,7 +829,16 @@ async function openCamera(facingMode = AppState.cameraFacingMode) {
     stopCameraTracks();
 
     const constraintsList = [
-        { video: { facingMode: { ideal: facingMode }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false },
+        {
+            video: {
+                facingMode: { ideal: facingMode },
+                width: { ideal: 4096 },
+                height: { ideal: 4096 },
+                resizeMode: { ideal: 'none' }
+            },
+            audio: false
+        },
+        { video: { facingMode: { ideal: facingMode } }, audio: false },
         { video: true, audio: false }
     ];
 
@@ -906,31 +915,103 @@ function getCaptureRatio() {
     return value === 'device' ? DOM.cameraVideo.videoWidth / DOM.cameraVideo.videoHeight : Number(value);
 }
 
-function capturePhoto() {
-    if (!AppState.cameraStream || !DOM.cameraVideo.videoWidth) return;
-    const c = document.createElement('canvas');
-    const sourceWidth = DOM.cameraVideo.videoWidth;
-    const sourceHeight = DOM.cameraVideo.videoHeight;
+function canvasToBlob(canvas, type = 'image/jpeg', quality = 0.98) {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+            if (blob) {
+                resolve(blob);
+            } else {
+                reject(new Error('Không thể tạo ảnh từ camera.'));
+            }
+        }, type, quality);
+    });
+}
+
+async function getCameraPhotoBlob() {
+    const track = AppState.cameraStream?.getVideoTracks()[0];
+    if (!track) throw new Error('Camera chưa sẵn sàng.');
+
+    if ('ImageCapture' in window) {
+        try {
+            return await new ImageCapture(track).takePhoto();
+        } catch (_) {
+            // Một số trình duyệt không hỗ trợ chụp ảnh trực tiếp từ video track.
+        }
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = DOM.cameraVideo.videoWidth;
+    canvas.height = DOM.cameraVideo.videoHeight;
+    canvas.getContext('2d').drawImage(DOM.cameraVideo, 0, 0);
+    return canvasToBlob(canvas);
+}
+
+async function decodePhotoBlob(blob) {
+    if (typeof createImageBitmap === 'function') {
+        const bitmap = await createImageBitmap(blob);
+        return { image: bitmap, close: () => bitmap.close() };
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+    const image = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Không thể đọc ảnh từ camera.'));
+        img.src = objectUrl;
+    });
+    return { image, close: () => URL.revokeObjectURL(objectUrl) };
+}
+
+async function cropCameraPhoto(blob, targetRatio) {
+    const decoded = await decodePhotoBlob(blob);
+    const source = decoded.image;
+    const sourceWidth = source.width;
+    const sourceHeight = source.height;
     const sourceRatio = sourceWidth / sourceHeight;
-    const targetRatio = getCaptureRatio();
+
+    if (Math.abs(sourceRatio - targetRatio) < 0.001) {
+        decoded.close();
+        return blob;
+    }
+
     let cropWidth = sourceWidth;
     let cropHeight = sourceHeight;
-
     if (targetRatio > sourceRatio) {
         cropHeight = Math.round(sourceWidth / targetRatio);
-    } else if (targetRatio < sourceRatio) {
+    } else {
         cropWidth = Math.round(sourceHeight * targetRatio);
     }
 
     const cropX = Math.round((sourceWidth - cropWidth) / 2);
     const cropY = Math.round((sourceHeight - cropHeight) / 2);
-    c.width = cropWidth;
-    c.height = cropHeight;
-    c.getContext('2d').drawImage(
-        DOM.cameraVideo,
+    const canvas = document.createElement('canvas');
+    canvas.width = cropWidth;
+    canvas.height = cropHeight;
+    canvas.getContext('2d').drawImage(
+        source,
         cropX, cropY, cropWidth, cropHeight,
         0, 0, cropWidth, cropHeight
     );
-    addPage(c.toDataURL('image/jpeg', 0.94));
-    closeCamera();
+    decoded.close();
+    return canvasToBlob(canvas);
+}
+
+async function capturePhoto() {
+    if (!AppState.cameraStream || !DOM.cameraVideo.videoWidth) return;
+    DOM.btnCapturePhoto.disabled = true;
+
+    try {
+        const sourceBlob = await getCameraPhotoBlob();
+        const targetRatio = getCaptureRatio();
+        const outputBlob = DOM.cameraAspectRatio.value === 'device'
+            ? sourceBlob
+            : await cropCameraPhoto(sourceBlob, targetRatio);
+        addPage(await blobToDataUrl(outputBlob));
+        closeCamera();
+    } catch (error) {
+        DOM.cameraStatusMsg.style.display = 'block';
+        DOM.cameraStatusMsg.textContent = error.message || 'Không thể chụp ảnh.';
+    } finally {
+        DOM.btnCapturePhoto.disabled = false;
+    }
 }
