@@ -536,6 +536,10 @@
             display: flex;
         }
 
+        #cameraModal {
+            padding: 0;
+        }
+
         .modal-box {
             background: var(--surface);
             padding: 18px;
@@ -549,8 +553,11 @@
         }
 
         .modal-box.camera-box {
-            max-width: min(900px, calc(100vw - 24px));
-            max-height: calc(100dvh - 24px);
+            width: min(1200px, 100vw);
+            height: min(100dvh, 1000px);
+            max-width: none;
+            max-height: none;
+            padding: 14px;
         }
 
         .modal-header {
@@ -630,20 +637,20 @@
         .video-container {
             position: relative;
             width: 100%;
+            flex: 1;
             background: #000;
             border-radius: 8px;
             overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 180px;
-            max-height: calc(100dvh - 180px);
+            min-height: 0;
         }
 
         #cameraVideo {
             width: 100%;
-            height: auto;
-            max-height: calc(100dvh - 180px);
+            height: 100%;
+            max-height: none;
             object-fit: contain;
             display: block;
             background: #000;
@@ -661,8 +668,8 @@
         .camera-ratio-guide::before {
             content: '';
             display: block;
-            width: min(100%, calc((100dvh - 180px) * var(--camera-ratio, 1.3333)));
-            height: min(100%, calc((100dvh - 180px) / var(--camera-ratio, 1.3333)));
+            width: min(100%, calc(100dvh * var(--camera-ratio, 1.3333)));
+            height: min(100%, calc(100dvh / var(--camera-ratio, 1.3333)));
             border: 1px solid rgba(255,255,255,0.9);
             box-shadow: 0 0 0 9999px rgba(0,0,0,0.32);
         }
@@ -678,9 +685,10 @@
         /* [6] GIAO DIỆN TỐI ƯU RIÊNG CHO ĐIỆN THOẠI */
         @media (max-width: 768px) {
             .modal-box.camera-box {
-                max-width: calc(100vw - 12px);
-                max-height: calc(100dvh - 12px);
-                padding: 12px;
+                width: 100vw;
+                height: 100dvh;
+                border-radius: 0;
+                padding: 10px;
             }
 
             body {
