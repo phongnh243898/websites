@@ -99,6 +99,8 @@ const DOM = {
     cameraModal: document.getElementById('cameraModal'),
     cameraVideo: document.getElementById('cameraVideo'),
     cameraStatusMsg: document.getElementById('cameraStatusMsg'),
+    cameraAspectRatio: document.getElementById('cameraAspectRatio'),
+    cameraRatioGuide: document.getElementById('cameraRatioGuide'),
     btnCapturePhoto: document.getElementById('btnCapturePhoto')
 };
 
@@ -147,6 +149,7 @@ function initEvents() {
     document.getElementById('btnCloseCamera').addEventListener('click', closeCamera);
     document.getElementById('btnSwitchCamera').addEventListener('click', switchCameraFacing);
     DOM.btnCapturePhoto.addEventListener('click', capturePhoto);
+    DOM.cameraAspectRatio.addEventListener('change', updateCameraRatioGuide);
 
     // Mở & Đóng Modal PDF
     document.getElementById('btnOpenPDFModal').addEventListener('click', openPDFModal);
@@ -817,7 +820,7 @@ async function openCamera(facingMode = AppState.cameraFacingMode) {
     stopCameraTracks();
 
     const constraintsList = [
-        { video: { facingMode: { ideal: facingMode }, width: { ideal: 1080 }, height: { ideal: 1920 } }, audio: false },
+        { video: { facingMode: { ideal: facingMode }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false },
         { video: true, audio: false }
     ];
 
@@ -825,9 +828,11 @@ async function openCamera(facingMode = AppState.cameraFacingMode) {
         try {
             const stream = await navigator.mediaDevices.getUserMedia(constraints);
             AppState.cameraStream = stream;
-            AppState.cameraFacingMode = facingMode;
+            AppState.cameraFacingMode =
+                stream.getVideoTracks()[0]?.getSettings().facingMode || facingMode;
             DOM.cameraVideo.srcObject = stream;
             await DOM.cameraVideo.play();
+            updateCameraRatioGuide();
             DOM.cameraStatusMsg.style.display = 'none';
             DOM.btnCapturePhoto.disabled = false;
             return;
@@ -860,12 +865,47 @@ function closeCamera() {
     DOM.cameraModal.classList.remove('active');
 }
 
+function updateCameraRatioGuide() {
+    const ratio = DOM.cameraAspectRatio.value;
+    if (ratio === 'device') {
+        DOM.cameraRatioGuide.hidden = true;
+        return;
+    }
+
+    DOM.cameraRatioGuide.hidden = false;
+    DOM.cameraRatioGuide.style.setProperty('--camera-ratio', ratio);
+}
+
+function getCaptureRatio() {
+    const value = DOM.cameraAspectRatio.value;
+    return value === 'device' ? DOM.cameraVideo.videoWidth / DOM.cameraVideo.videoHeight : Number(value);
+}
+
 function capturePhoto() {
     if (!AppState.cameraStream || !DOM.cameraVideo.videoWidth) return;
     const c = document.createElement('canvas');
-    c.width = DOM.cameraVideo.videoWidth;
-    c.height = DOM.cameraVideo.videoHeight;
-    c.getContext('2d').drawImage(DOM.cameraVideo, 0, 0);
+    const sourceWidth = DOM.cameraVideo.videoWidth;
+    const sourceHeight = DOM.cameraVideo.videoHeight;
+    const sourceRatio = sourceWidth / sourceHeight;
+    const targetRatio = getCaptureRatio();
+    let cropWidth = sourceWidth;
+    let cropHeight = sourceHeight;
+
+    if (targetRatio > sourceRatio) {
+        cropHeight = Math.round(sourceWidth / targetRatio);
+    } else if (targetRatio < sourceRatio) {
+        cropWidth = Math.round(sourceHeight * targetRatio);
+    }
+
+    const cropX = Math.round((sourceWidth - cropWidth) / 2);
+    const cropY = Math.round((sourceHeight - cropHeight) / 2);
+    c.width = cropWidth;
+    c.height = cropHeight;
+    c.getContext('2d').drawImage(
+        DOM.cameraVideo,
+        cropX, cropY, cropWidth, cropHeight,
+        0, 0, cropWidth, cropHeight
+    );
     addPage(c.toDataURL('image/jpeg', 0.94));
     closeCamera();
 }

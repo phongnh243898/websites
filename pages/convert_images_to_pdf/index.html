@@ -549,7 +549,8 @@
         }
 
         .modal-box.camera-box {
-            max-width: 540px;
+            max-width: min(900px, calc(100vw - 24px));
+            max-height: calc(100dvh - 24px);
         }
 
         .modal-header {
@@ -632,16 +633,38 @@
             background: #000;
             border-radius: 8px;
             overflow: hidden;
-            aspect-ratio: 4 / 3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 180px;
+            max-height: calc(100dvh - 180px);
+        }
+
+        #cameraVideo {
+            width: 100%;
+            height: auto;
+            max-height: calc(100dvh - 180px);
+            object-fit: contain;
+            display: block;
+            background: #000;
+        }
+
+        .camera-ratio-guide {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
-        #cameraVideo {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        .camera-ratio-guide::before {
+            content: '';
+            display: block;
+            width: min(100%, calc((100dvh - 180px) * var(--camera-ratio, 1.3333)));
+            height: min(100%, calc((100dvh - 180px) / var(--camera-ratio, 1.3333)));
+            border: 1px solid rgba(255,255,255,0.9);
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.32);
         }
 
         .camera-msg {
@@ -654,6 +677,12 @@
 
         /* [6] GIAO DIỆN TỐI ƯU RIÊNG CHO ĐIỆN THOẠI */
         @media (max-width: 768px) {
+            .modal-box.camera-box {
+                max-width: calc(100vw - 12px);
+                max-height: calc(100dvh - 12px);
+                padding: 12px;
+            }
+
             body {
                 padding: 6px;
                 gap: 6px;
@@ -1102,7 +1131,19 @@
             </div>
             <div class="video-container">
                 <video id="cameraVideo" autoplay playsinline muted></video>
+                <div class="camera-ratio-guide" id="cameraRatioGuide"></div>
                 <div id="cameraStatusMsg" class="camera-msg">Đang xin quyền truy cập Camera...</div>
+            </div>
+            <div class="form-group camera-ratio-control">
+                <label for="cameraAspectRatio">Tỉ lệ ảnh</label>
+                <select id="cameraAspectRatio">
+                    <option value="device" selected>Theo thiết bị (toàn bộ khung hình)</option>
+                    <option value="1">1:1 (Vuông)</option>
+                    <option value="1.333333">4:3</option>
+                    <option value="0.75">3:4</option>
+                    <option value="1.777778">16:9</option>
+                    <option value="0.5625">9:16</option>
+                </select>
             </div>
             <div class="modal-footer" style="justify-content: center;">
                 <button id="btnSwitchCamera">Đổi Camera</button>
