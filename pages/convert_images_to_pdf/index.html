@@ -553,11 +553,16 @@
         }
 
         .modal-box.camera-box {
-            width: min(1200px, 100vw);
-            height: min(100dvh, 1000px);
+            position: relative;
+            width: 100vw;
+            height: 100dvh;
             max-width: none;
             max-height: none;
-            padding: 14px;
+            padding: 0;
+            border-radius: 0;
+            background: #000;
+            overflow: hidden;
+            gap: 0;
         }
 
         .modal-header {
@@ -566,6 +571,26 @@
             align-items: center;
             border-bottom: 1px solid var(--border);
             padding-bottom: 10px;
+        }
+
+        .camera-box .modal-header {
+            position: absolute;
+            inset: 0 0 auto;
+            z-index: 20;
+            padding: max(14px, env(safe-area-inset-top)) 16px 20px;
+            border: none;
+            color: #fff;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.65), transparent);
+        }
+
+        .camera-box .modal-header h4 {
+            color: #fff;
+        }
+
+        .camera-box .icon-action {
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.25);
+            background: rgba(0,0,0,0.3);
         }
 
         .modal-header h4 {
@@ -634,17 +659,50 @@
             padding-top: 12px;
         }
 
+        .camera-box .modal-footer {
+            position: absolute;
+            inset: auto 0 0;
+            z-index: 20;
+            height: 116px;
+            padding: 0 24px max(18px, env(safe-area-inset-bottom));
+            border: none;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(to top, rgba(0,0,0,0.72), transparent);
+        }
+
+        .camera-box #btnSwitchCamera {
+            position: absolute;
+            left: calc(50% - 132px);
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            border-radius: 50%;
+            border-color: rgba(255,255,255,0.35);
+            background: rgba(0,0,0,0.4);
+            color: #fff;
+        }
+
+        .camera-box #btnCapturePhoto {
+            width: 72px;
+            height: 72px;
+            padding: 0;
+            border: 5px solid #fff;
+            border-radius: 50%;
+            background: var(--primary);
+            color: transparent;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.45);
+        }
+
         .video-container {
             position: relative;
             width: 100%;
-            flex: 1;
+            height: 100%;
             background: #000;
-            border-radius: 8px;
             overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 0;
         }
 
         #cameraVideo {
@@ -668,10 +726,54 @@
         .camera-ratio-guide::before {
             content: '';
             display: block;
-            width: min(100%, calc(100dvh * var(--camera-ratio, 1.3333)));
-            height: min(100%, calc(100dvh / var(--camera-ratio, 1.3333)));
+            width: var(--guide-width, 100%);
+            height: var(--guide-height, 100%);
             border: 1px solid rgba(255,255,255,0.9);
             box-shadow: 0 0 0 9999px rgba(0,0,0,0.32);
+        }
+
+        .camera-ratio-control {
+            position: absolute;
+            top: max(70px, calc(env(safe-area-inset-top) + 52px));
+            left: 50%;
+            z-index: 20;
+            transform: translateX(-50%);
+            align-items: center;
+            width: max-content;
+            max-width: calc(100vw - 24px);
+            color: #fff;
+        }
+
+        .camera-ratio-control label {
+            color: #fff;
+            justify-content: center;
+        }
+
+        #cameraAspectRatio {
+            display: none;
+        }
+
+        .camera-ratio-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .camera-ratio-buttons button {
+            min-width: 46px;
+            padding: 6px 9px;
+            border: 1px solid rgba(255,255,255,0.35);
+            border-radius: 999px;
+            background: rgba(0,0,0,0.45);
+            color: #fff;
+            font-size: 0.72rem;
+        }
+
+        .camera-ratio-buttons button.active {
+            background: #fff;
+            color: #18181b;
+            border-color: #fff;
         }
 
         .camera-msg {
@@ -687,8 +789,7 @@
             .modal-box.camera-box {
                 width: 100vw;
                 height: 100dvh;
-                border-radius: 0;
-                padding: 10px;
+                padding: 0;
             }
 
             body {
@@ -914,7 +1015,6 @@
                 <span class="btn-text-hide-mobile">Tải ảnh</span>
             </label>
             <input type="file" id="fileInput" accept="image/*" multiple>
-            <input type="file" id="cameraCaptureInput" accept="image/*" capture="environment">
 
             <button id="btnOpenCamera">
                 <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -1144,8 +1244,8 @@
                 <div id="cameraStatusMsg" class="camera-msg">Đang xin quyền truy cập Camera...</div>
             </div>
             <div class="form-group camera-ratio-control">
-                <label for="cameraAspectRatio">Tỉ lệ ảnh</label>
-                <select id="cameraAspectRatio">
+                <label>Tỉ lệ ảnh</label>
+                <select id="cameraAspectRatio" aria-hidden="true">
                     <option value="device" selected>Theo thiết bị (toàn bộ khung hình)</option>
                     <option value="1">1:1 (Vuông)</option>
                     <option value="1.333333">4:3</option>
@@ -1153,6 +1253,14 @@
                     <option value="1.777778">16:9</option>
                     <option value="0.5625">9:16</option>
                 </select>
+                <div class="camera-ratio-buttons" role="group" aria-label="Tỉ lệ ảnh">
+                    <button type="button" class="active" data-camera-ratio="device">Thiết bị</button>
+                    <button type="button" data-camera-ratio="1">1:1</button>
+                    <button type="button" data-camera-ratio="1.333333">4:3</button>
+                    <button type="button" data-camera-ratio="0.75">3:4</button>
+                    <button type="button" data-camera-ratio="1.777778">16:9</button>
+                    <button type="button" data-camera-ratio="0.5625">9:16</button>
+                </div>
             </div>
             <div class="modal-footer" style="justify-content: center;">
                 <button id="btnSwitchCamera">Đổi Camera</button>

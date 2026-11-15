@@ -30,7 +30,6 @@ const AppState = {
 
 const DOM = {
     fileInput: document.getElementById('fileInput'),
-    cameraCaptureInput: document.getElementById('cameraCaptureInput'),
     pageList: document.getElementById('pageList'),
     pageCount: document.getElementById('pageCount'),
     viewport: document.getElementById('viewport'),
@@ -102,6 +101,8 @@ const DOM = {
     cameraStatusMsg: document.getElementById('cameraStatusMsg'),
     cameraAspectRatio: document.getElementById('cameraAspectRatio'),
     cameraRatioGuide: document.getElementById('cameraRatioGuide'),
+    cameraVideoContainer: document.querySelector('.video-container'),
+    cameraRatioButtons: document.querySelectorAll('[data-camera-ratio]'),
     btnCapturePhoto: document.getElementById('btnCapturePhoto')
 };
 
@@ -146,12 +147,18 @@ function initSavedApiKey() {
 /* [2] Sự kiện điều khiển chính */
 function initEvents() {
     DOM.fileInput.addEventListener('change', handleFileUpload);
-    DOM.cameraCaptureInput.addEventListener('change', handleFileUpload);
     document.getElementById('btnOpenCamera').addEventListener('click', () => openCamera());
     document.getElementById('btnCloseCamera').addEventListener('click', closeCamera);
     document.getElementById('btnSwitchCamera').addEventListener('click', switchCameraFacing);
     DOM.btnCapturePhoto.addEventListener('click', capturePhoto);
     DOM.cameraAspectRatio.addEventListener('change', updateCameraRatioGuide);
+    DOM.cameraRatioButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            DOM.cameraAspectRatio.value = button.dataset.cameraRatio;
+            updateCameraRatioGuide();
+        });
+    });
+    window.addEventListener('resize', updateCameraRatioGuide);
 
     // Mở & Đóng Modal PDF
     document.getElementById('btnOpenPDFModal').addEventListener('click', openPDFModal);
@@ -808,25 +815,7 @@ function initCornerDragEvents() {
 }
 
 /* [8] Camera xin quyền & chụp ảnh */
-function shouldUseNativeCamera() {
-    const mobileUserAgent = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-    const touchTablet = navigator.maxTouchPoints > 1 &&
-        window.matchMedia('(pointer: coarse)').matches &&
-        window.innerWidth <= 1200;
-    return mobileUserAgent || touchTablet;
-}
-
 async function openCamera(facingMode = AppState.cameraFacingMode) {
-    if (shouldUseNativeCamera()) {
-        DOM.cameraCaptureInput.value = '';
-        DOM.cameraCaptureInput.click();
-        return;
-    }
-
-    await openBrowserCamera(facingMode);
-}
-
-async function openBrowserCamera(facingMode = AppState.cameraFacingMode) {
     DOM.cameraModal.classList.add('active');
     DOM.cameraStatusMsg.style.display = 'block';
     DOM.cameraStatusMsg.textContent = 'Đang yêu cầu quyền truy cập Camera...';
@@ -869,7 +858,7 @@ async function openBrowserCamera(facingMode = AppState.cameraFacingMode) {
 
 function switchCameraFacing() {
     const nextFacing = AppState.cameraFacingMode === 'environment' ? 'user' : 'environment';
-    openBrowserCamera(nextFacing);
+    openCamera(nextFacing);
 }
 
 function stopCameraTracks() {
@@ -887,6 +876,10 @@ function closeCamera() {
 
 function updateCameraRatioGuide() {
     const ratio = DOM.cameraAspectRatio.value;
+    DOM.cameraRatioButtons.forEach((button) => {
+        button.classList.toggle('active', button.dataset.cameraRatio === ratio);
+    });
+
     if (ratio === 'device') {
         DOM.cameraRatioGuide.hidden = true;
         return;
@@ -894,6 +887,18 @@ function updateCameraRatioGuide() {
 
     DOM.cameraRatioGuide.hidden = false;
     DOM.cameraRatioGuide.style.setProperty('--camera-ratio', ratio);
+
+    const bounds = DOM.cameraVideoContainer.getBoundingClientRect();
+    const targetRatio = Number(ratio);
+    let frameWidth = bounds.width;
+    let frameHeight = frameWidth / targetRatio;
+    if (frameHeight > bounds.height) {
+        frameHeight = bounds.height;
+        frameWidth = frameHeight * targetRatio;
+    }
+
+    DOM.cameraRatioGuide.style.setProperty('--guide-width', `${frameWidth}px`);
+    DOM.cameraRatioGuide.style.setProperty('--guide-height', `${frameHeight}px`);
 }
 
 function getCaptureRatio() {
