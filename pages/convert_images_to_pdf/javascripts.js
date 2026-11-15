@@ -30,6 +30,7 @@ const AppState = {
 
 const DOM = {
     fileInput: document.getElementById('fileInput'),
+    cameraCaptureInput: document.getElementById('cameraCaptureInput'),
     pageList: document.getElementById('pageList'),
     pageCount: document.getElementById('pageCount'),
     viewport: document.getElementById('viewport'),
@@ -145,6 +146,7 @@ function initSavedApiKey() {
 /* [2] Sự kiện điều khiển chính */
 function initEvents() {
     DOM.fileInput.addEventListener('change', handleFileUpload);
+    DOM.cameraCaptureInput.addEventListener('change', handleFileUpload);
     document.getElementById('btnOpenCamera').addEventListener('click', () => openCamera());
     document.getElementById('btnCloseCamera').addEventListener('click', closeCamera);
     document.getElementById('btnSwitchCamera').addEventListener('click', switchCameraFacing);
@@ -806,7 +808,25 @@ function initCornerDragEvents() {
 }
 
 /* [8] Camera xin quyền & chụp ảnh */
+function shouldUseNativeCamera() {
+    const mobileUserAgent = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    const touchTablet = navigator.maxTouchPoints > 1 &&
+        window.matchMedia('(pointer: coarse)').matches &&
+        window.innerWidth <= 1200;
+    return mobileUserAgent || touchTablet;
+}
+
 async function openCamera(facingMode = AppState.cameraFacingMode) {
+    if (shouldUseNativeCamera()) {
+        DOM.cameraCaptureInput.value = '';
+        DOM.cameraCaptureInput.click();
+        return;
+    }
+
+    await openBrowserCamera(facingMode);
+}
+
+async function openBrowserCamera(facingMode = AppState.cameraFacingMode) {
     DOM.cameraModal.classList.add('active');
     DOM.cameraStatusMsg.style.display = 'block';
     DOM.cameraStatusMsg.textContent = 'Đang yêu cầu quyền truy cập Camera...';
@@ -849,7 +869,7 @@ async function openCamera(facingMode = AppState.cameraFacingMode) {
 
 function switchCameraFacing() {
     const nextFacing = AppState.cameraFacingMode === 'environment' ? 'user' : 'environment';
-    openCamera(nextFacing);
+    openBrowserCamera(nextFacing);
 }
 
 function stopCameraTracks() {
