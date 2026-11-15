@@ -20,7 +20,12 @@ const AppState = {
     panY: 0,
     isPanning: false,
     startPanX: 0,
-    startPanY: 0
+    startPanY: 0,
+    panStartX: 0,
+    panStartY: 0,
+    activePointers: new Map(),
+    lastPinchDistance: 0,
+    lastPinchCenter: null
 };
 
 const DOM = {
@@ -264,47 +269,128 @@ function resetZoomPan() {
     updateTransform();
 }
 
+function getPinchData() {
+    const pointers = Array.from(AppState.activePointers.values()).slice(0, 2);
+    if (pointers.length < 2) return null;
+
+    const [first, second] = pointers;
+    return {
+        distance: Math.hypot(second.x - first.x, second.y - first.y),
+        center: {
+            x: (first.x + second.x) / 2,
+            y: (first.y + second.y) / 2
+        }
+    };
+}
+
+function zoomAt(nextZoom, clientX, clientY) {
+    const rect = DOM.viewport.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const contentX = (clientX - centerX - AppState.panX) / AppState.zoom;
+    const contentY = (clientY - centerY - AppState.panY) / AppState.zoom;
+
+    AppState.zoom = Math.min(4, Math.max(0.25, nextZoom));
+    AppState.panX = clientX - centerX - contentX * AppState.zoom;
+    AppState.panY = clientY - centerY - contentY * AppState.zoom;
+}
+
+function isViewportControl(target) {
+    return target.closest('.floating-dock') ||
+        target.closest('.zoom-controls') ||
+        target.classList.contains('corner-handle');
+}
+
 function initZoomPanEvents() {
     DOM.viewport.addEventListener('wheel', (e) => {
         if (AppState.currentIndex < 0) return;
         e.preventDefault();
-        const delta = e.deltaY < 0 ? 0.12 : -0.12;
-        AppState.zoom = Math.min(4, Math.max(0.25, AppState.zoom + delta));
+        const zoomFactor = Math.exp(-e.deltaY * 0.0015);
+        zoomAt(AppState.zoom * zoomFactor, e.clientX, e.clientY);
         updateTransform();
     }, { passive: false });
 
     DOM.viewport.addEventListener('pointerdown', (e) => {
-        if (AppState.currentIndex < 0 || AppState.draggingCorner) return;
-        if (
-            e.target.closest('.floating-dock') ||
-            e.target.closest('.zoom-controls') ||
-            e.target.classList.contains('corner-handle')
-        ) return;
+        if (AppState.currentIndex < 0 || AppState.draggingCorner || isViewportControl(e.target)) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
 
-        AppState.isPanning = true;
-        AppState.startPanX = e.clientX - AppState.panX;
-        AppState.startPanY = e.clientY - AppState.panY;
+        e.preventDefault();
+        DOM.viewport.setPointerCapture?.(e.pointerId);
+        AppState.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        if (AppState.activePointers.size === 1) {
+            AppState.isPanning = true;
+            AppState.startPanX = e.clientX;
+            AppState.startPanY = e.clientY;
+            AppState.panStartX = AppState.panX;
+            AppState.panStartY = AppState.panY;
+        } else if (AppState.activePointers.size === 2) {
+            const pinch = getPinchData();
+            AppState.lastPinchDistance = pinch.distance;
+            AppState.lastPinchCenter = pinch.center;
+        }
+
         DOM.viewport.classList.add('panning');
     });
 
-    window.addEventListener('pointermove', (e) => {
-        if (!AppState.isPanning) return;
-        AppState.panX = e.clientX - AppState.startPanX;
-        AppState.panY = e.clientY - AppState.startPanY;
-        updateTransform();
+    DOM.viewport.addEventListener('pointermove', (e) => {
+        if (!AppState.activePointers.has(e.pointerId)) return;
+        e.preventDefault();
+        AppState.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        if (AppState.activePointers.size >= 2) {
+            const pinch = getPinchData();
+            const zoomRatio = AppState.lastPinchDistance
+                ? pinch.distance / AppState.lastPinchDistance
+                : 1;
+
+            zoomAt(AppState.zoom * zoomRatio, pinch.center.x, pinch.center.y);
+            if (AppState.lastPinchCenter) {
+                AppState.panX += pinch.center.x - AppState.lastPinchCenter.x;
+                AppState.panY += pinch.center.y - AppState.lastPinchCenter.y;
+            }
+            AppState.lastPinchDistance = pinch.distance;
+            AppState.lastPinchCenter = pinch.center;
+            updateTransform();
+            return;
+        }
+
+        if (AppState.isPanning) {
+            AppState.panX = AppState.panStartX + e.clientX - AppState.startPanX;
+            AppState.panY = AppState.panStartY + e.clientY - AppState.startPanY;
+            updateTransform();
+        }
     });
 
-    window.addEventListener('pointerup', () => {
-        AppState.isPanning = false;
-        DOM.viewport.classList.remove('panning');
-    });
+    const endPointer = (e) => {
+        AppState.activePointers.delete(e.pointerId);
+        if (AppState.activePointers.size === 1) {
+            const remaining = Array.from(AppState.activePointers.values())[0];
+            AppState.isPanning = true;
+            AppState.startPanX = remaining.x;
+            AppState.startPanY = remaining.y;
+            AppState.panStartX = AppState.panX;
+            AppState.panStartY = AppState.panY;
+        } else if (AppState.activePointers.size === 0) {
+            AppState.isPanning = false;
+            AppState.lastPinchDistance = 0;
+            AppState.lastPinchCenter = null;
+            DOM.viewport.classList.remove('panning');
+        }
+    };
+
+    DOM.viewport.addEventListener('pointerup', endPointer);
+    DOM.viewport.addEventListener('pointercancel', endPointer);
+    DOM.viewport.addEventListener('lostpointercapture', endPointer);
 
     DOM.btnZoomIn.addEventListener('click', () => {
-        AppState.zoom = Math.min(4, AppState.zoom + 0.2);
+        const rect = DOM.viewport.getBoundingClientRect();
+        zoomAt(AppState.zoom + 0.2, rect.left + rect.width / 2, rect.top + rect.height / 2);
         updateTransform();
     });
     DOM.btnZoomOut.addEventListener('click', () => {
-        AppState.zoom = Math.max(0.25, AppState.zoom - 0.2);
+        const rect = DOM.viewport.getBoundingClientRect();
+        zoomAt(AppState.zoom - 0.2, rect.left + rect.width / 2, rect.top + rect.height / 2);
         updateTransform();
     });
     DOM.btnZoomReset.addEventListener('click', resetZoomPan);
