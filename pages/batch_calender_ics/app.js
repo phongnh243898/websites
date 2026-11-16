@@ -2,23 +2,30 @@ const monthNames = ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", 
 const weekdayNames = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const today = new Date();
 const storedEvents = JSON.parse(localStorage.getItem("batch-calendar-events") || "[]");
-const state = {
-    year: today.getFullYear(),
-    calendar: "solar",
-    selectedDates: new Set(),
-    events: Array.isArray(storedEvents) ? storedEvents : Object.entries(storedEvents).map(([key, event], index) => ({
-        id: `legacy-${index}-${key}`,
-        ...event,
-        date: event.date || key,
-        endDate: event.endDate || event.date || key
-    })),
-    editingId: null
-};
-
 const $ = (selector) => document.querySelector(selector);
 const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const parseDate = (key) => { const [year, month, day] = key.split("-").map(Number); return new Date(year, month - 1, day); };
 const formatDate = (key) => parseDate(key).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+const expandDateRange = (start, end) => {
+    const dates = [];
+    for (let cursor = parseDate(start), last = parseDate(end || start); cursor <= last; cursor.setDate(cursor.getDate() + 1)) {
+        dates.push(dateKey(cursor));
+    }
+    return dates;
+};
+const state = {
+    year: today.getFullYear(),
+    calendar: "solar",
+    selectedDates: new Set(),
+    events: Array.isArray(storedEvents)
+        ? storedEvents.map((event) => ({ ...event, dates: event.dates || expandDateRange(event.date, event.endDate) }))
+        : Object.entries(storedEvents).map(([key, event], index) => ({
+            id: `legacy-${index}-${key}`,
+            ...event,
+            dates: expandDateRange(event.date || key, event.endDate || event.date || key)
+        })),
+    editingId: null
+};
 
 function lunarDate(date) {
     const [day, month] = convertSolarToLunar(date.getDate(), date.getMonth() + 1, date.getFullYear());
@@ -119,15 +126,11 @@ function saveEvents() {
 }
 
 function eventContainsDate(event, key) {
-    return key >= event.date && key <= (event.endDate || event.date);
+    return event.dates.includes(key);
 }
 
 function eventsForYear() {
-    return state.events.filter((event) => {
-        const startYear = Number(event.date.slice(0, 4));
-        const endYear = Number((event.endDate || event.date).slice(0, 4));
-        return startYear <= state.year && endYear >= state.year;
-    });
+    return state.events.filter((event) => event.dates.some((key) => Number(key.slice(0, 4)) === state.year));
 }
 
 function renderYearOptions() {
@@ -141,7 +144,6 @@ function renderYearOptions() {
 }
 
 function renderCalendar() {
-    $("#introYear").textContent = `(${state.year})`;
     const grid = $("#monthsGrid");
     grid.innerHTML = "";
     for (let month = 0; month < 12; month += 1) {
@@ -202,10 +204,7 @@ function renderSidebar() {
         ? `${selected.length} ngày đang chọn`
         : "Tạo một sự kiện kéo dài nhiều ngày hoặc chọn sự kiện để chỉnh sửa.";
     const existing = state.events.find((event) => event.id === state.editingId);
-    const selectedDate = selected[0] || "";
     $("#eventTitle").value = existing?.title || "";
-    $("#eventDate").value = existing?.date || selectedDate;
-    $("#eventEndDate").value = existing?.endDate || existing?.date || selectedDate;
     $("#eventStart").value = existing?.start || "09:00";
     $("#eventEnd").value = existing?.end || "10:00";
     $("#eventLocation").value = existing?.location || "";
@@ -214,13 +213,13 @@ function renderSidebar() {
     $("#deleteEventButton").disabled = !existing;
     $("#saveEventButton").textContent = existing ? "Lưu thay đổi" : "+ Thêm lịch";
     $("#eventList").innerHTML = yearEvents.length ? yearEvents
-        .sort((a, b) => a.date.localeCompare(b.date))
+        .sort((a, b) => a.dates[0].localeCompare(b.dates[0]))
         .map((event) => `<button class="event-item${event.id === state.editingId ? " is-active" : ""}" type="button" data-event-id="${event.id}">
-        <strong>${escapeHtml(event.title)}</strong><span>${formatDate(event.date)}${event.endDate && event.endDate !== event.date ? ` → ${formatDate(event.endDate)}` : ""} · ${event.start} - ${event.end}</span>${event.location ? `<span>${escapeHtml(event.location)}</span>` : ""}
+        <strong>${escapeHtml(event.title)}</strong><span>${event.dates.length} ngày · ${event.start} - ${event.end}</span>${event.location ? `<span>${escapeHtml(event.location)}</span>` : ""}
     </button>`).join("") : '<p class="empty-state">Chưa có sự kiện nào trong năm này.</p>';
     document.querySelectorAll("[data-event-id]").forEach((item) => item.addEventListener("click", () => {
         const event = state.events.find((entry) => entry.id === item.dataset.eventId);
-        state.selectedDates = new Set([event.date]);
+        state.selectedDates = new Set(event.dates);
         state.editingId = event.id;
         renderCalendar();
         renderSidebar();
@@ -245,9 +244,11 @@ function createIcs(events) {
         const clean = (value = "") => value.replace(/([,;])/g, "\\$1").replace(/\n/g, "\\n");
         const start = event.start.replace(":", "");
         const end = event.end.replace(":", "");
-        const date = event.date.replace(/-/g, "");
-        const endDate = (event.endDate || event.date).replace(/-/g, "");
-        lines.push("BEGIN:VEVENT", `UID:${event.id}@phongnh`, `DTSTAMP:${date}T${start}00`, `DTSTART:${date}T${start}00`, `DTEND:${endDate}T${end}00`, `SUMMARY:${clean(event.title)}`);
+        const dates = [...event.dates].sort();
+        const date = dates[0].replace(/-/g, "");
+        lines.push("BEGIN:VEVENT", `UID:${event.id}@phongnh`, `DTSTAMP:${date}T${start}00`, `DTSTART:${date}T${start}00`, `SUMMARY:${clean(event.title)}`);
+        if (dates.length > 1) lines.push(`RDATE:${dates.slice(1).map((key) => `${key.replace(/-/g, "")}T${start}00`).join(",")}`);
+        lines.push(`DTEND:${date}T${end}00`);
         if (event.location) lines.push(`LOCATION:${clean(event.location)}`);
         if (event.notes) lines.push(`DESCRIPTION:${clean(event.notes)}`);
         if (event.url) lines.push(`URL:${clean(event.url)}`);
@@ -303,23 +304,18 @@ $("#eventForm").addEventListener("submit", (event) => {
     const isEditing = Boolean(state.editingId);
     const details = {
         title: $("#eventTitle").value.trim(),
-        date: $("#eventDate").value,
-        endDate: $("#eventEndDate").value || $("#eventDate").value,
+        dates: [...state.selectedDates].sort(),
         start: $("#eventStart").value,
         end: $("#eventEnd").value,
         location: $("#eventLocation").value.trim(),
         notes: $("#eventNotes").value.trim(),
         url: $("#eventUrl").value.trim()
     };
-    if (!details.date) {
-        showToast("Hãy chọn ngày bắt đầu.");
+    if (!details.dates.length) {
+        showToast("Hãy chọn ít nhất một ngày trên lịch.");
         return;
     }
-    if (details.endDate < details.date) {
-        showToast("Ngày kết thúc cần sau ngày bắt đầu.");
-        return;
-    }
-    if (details.end <= details.start && details.endDate === details.date) {
+    if (details.end <= details.start) {
         showToast("Giờ kết thúc cần sau giờ bắt đầu.");
         return;
     }
@@ -333,7 +329,7 @@ $("#eventForm").addEventListener("submit", (event) => {
         state.events.push(eventDetails);
     }
     saveEvents();
-    state.selectedDates = new Set([details.date]);
+    state.selectedDates = new Set(details.dates);
     state.editingId = eventDetails.id;
     renderCalendar();
     renderSidebar();
@@ -350,7 +346,7 @@ $("#deleteEventButton").addEventListener("click", () => {
     showToast("Đã xóa lịch trình.");
 });
 $("#exportAllButton").addEventListener("click", () => {
-    const events = eventsForYear().map((event) => ({ key: event.date, event }));
+    const events = eventsForYear().map((event) => ({ key: event.dates[0], event }));
     downloadIcs(events, `lich-${state.year}.ics`);
 });
 

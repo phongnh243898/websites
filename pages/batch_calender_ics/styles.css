@@ -39,10 +39,8 @@ button { cursor: pointer; }
 
 .topbar,
 .brand,
-.top-actions,
 .calendar-mode,
-.panel-topline,
-.calendar-caption,
+.calendar-toolbar,
 .calendar-legend,
 .sidebar-title,
 .events-heading,
@@ -79,12 +77,6 @@ button { cursor: pointer; }
     box-shadow: 0 7px 15px rgba(51, 103, 237, .24);
     font-size: 18px;
     font-weight: 900;
-}
-
-.top-actions {
-    justify-content: flex-end;
-    min-width: 0;
-    gap: 12px;
 }
 
 .calendar-mode {
@@ -173,13 +165,6 @@ textarea:focus {
     color: var(--blue);
 }
 
-.page-heading {
-    display: flex;
-    justify-content: space-between;
-    gap: 25px;
-    padding: 58px 3px 30px;
-}
-
 .kicker {
     margin: 0 0 8px;
     color: var(--muted);
@@ -187,35 +172,6 @@ textarea:focus {
     font-weight: 900;
     letter-spacing: .17em;
 }
-
-.page-heading h1 {
-    margin: 0 0 9px;
-    font-size: clamp(29px, 3.2vw, 45px);
-    letter-spacing: -.065em;
-    line-height: 1.05;
-}
-
-.page-heading h1 em {
-    color: var(--blue);
-    font-style: normal;
-}
-
-.heading-copy {
-    margin: 0;
-    color: var(--muted);
-    font-size: 13px;
-}
-
-.heading-stats {
-    display: flex;
-    align-self: end;
-    gap: 30px;
-    padding-bottom: 4px;
-}
-
-.heading-stats div { display: grid; gap: 4px; }
-.heading-stats strong { font-size: 23px; letter-spacing: -.05em; }
-.heading-stats span { color: var(--muted); font-size: 10px; font-weight: 700; }
 
 .content-layout {
     display: grid;
@@ -235,7 +191,7 @@ textarea:focus {
 
 .calendar-panel { padding: 18px; }
 
-.panel-topline {
+.calendar-toolbar {
     justify-content: space-between;
     gap: 12px;
     padding: 0 2px 17px;
@@ -248,25 +204,6 @@ textarea:focus {
     flex-wrap: wrap;
     gap: 8px;
 }
-
-.calendar-caption { min-width: 0; gap: 10px; }
-
-.caption-icon {
-    display: grid;
-    width: 30px;
-    height: 30px;
-    flex: 0 0 30px;
-    place-items: center;
-    border-radius: 8px;
-    color: var(--blue);
-    background: var(--blue-pale);
-    font-size: 17px;
-}
-
-.calendar-caption strong,
-.calendar-caption small { display: block; }
-.calendar-caption strong { font-size: 13px; }
-.calendar-caption small { margin-top: 3px; color: var(--muted); font-size: 10px; }
 
 .calendar-legend {
     display: flex;
@@ -296,7 +233,7 @@ textarea:focus {
 
 .months-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
     gap: 12px;
     min-width: 0;
 }
@@ -538,25 +475,14 @@ textarea:focus {
     transform: translateY(0);
 }
 
-@media (max-width: 1180px) {
-    .months-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-
 @media (max-width: 900px) {
     .app { width: min(100% - 32px, 720px); }
-    .topbar,
-    .page-heading {
+    .topbar {
         align-items: flex-start;
         flex-direction: column;
     }
-    .top-actions {
-        justify-content: flex-start;
-        flex-wrap: wrap;
-        width: 100%;
-    }
     .content-layout { grid-template-columns: 1fr; }
     .event-sidebar { order: -1; }
-    .months-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 640px) {
@@ -564,17 +490,11 @@ textarea:focus {
         width: min(100% - 24px, 560px);
         padding-top: 18px;
     }
-    .top-actions { gap: 8px; }
     .calendar-mode { flex: 1 1 220px; }
     .mode-button { flex: 1; }
     .year-picker { flex: 1 1 120px; }
     .year-picker select { flex: 1; min-width: 0; }
-    .page-heading { padding-top: 38px; }
-    .heading-stats {
-        justify-content: space-between;
-        width: 100%;
-    }
-    .panel-topline {
+    .calendar-toolbar {
         align-items: flex-start;
         flex-direction: column;
     }
@@ -586,7 +506,6 @@ textarea:focus {
     .calendar-controls .year-picker,
     .calendar-controls .button { flex: 1 1 auto; }
     .calendar-controls .year-picker select { min-width: 0; }
-    .months-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 420px) {
@@ -594,6 +513,6 @@ textarea:focus {
     .calendar-panel,
     .event-sidebar { padding: 14px; }
     .field-grid { grid-template-columns: 1fr; }
-    .months-grid { grid-template-columns: 1fr; }
+    .months-grid { grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); }
     .month-card { padding: 12px; }
 }

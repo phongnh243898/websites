@@ -18,11 +18,7 @@
 
         <div class="content-layout">
             <section class="calendar-panel" aria-label="Bảng lịch 12 tháng">
-                <div class="panel-topline">
-                    <div class="calendar-caption">
-                        <span class="caption-icon">▦</span>
-                        <div><strong>Bảng lịch 12 tháng <span id="introYear"></span></strong><small>Thứ 2 là ngày đầu tuần</small></div>
-                    </div>
+                <div class="calendar-toolbar">
                     <div class="calendar-controls">
                         <div class="calendar-mode" role="group" aria-label="Kiểu lịch">
                             <button class="mode-button is-active" data-calendar="solar" type="button">Dương</button>
@@ -34,11 +30,11 @@
                         </label>
                         <button class="button button-outline" id="todayButton" type="button">Hôm nay</button>
                     </div>
-                </div>
-                <div class="calendar-legend">
-                    <span><i class="dot dot-event"></i>Có sự kiện</span>
-                    <span><i class="dot dot-selected"></i>Đang chọn</span>
-                    <span id="eventCount">0 sự kiện</span>
+                    <div class="calendar-legend">
+                        <span><i class="dot dot-event"></i>Có sự kiện</span>
+                        <span><i class="dot dot-selected"></i>Đang chọn</span>
+                        <span id="eventCount">0 sự kiện</span>
+                    </div>
                 </div>
                 <div class="months-grid" id="monthsGrid"></div>
             </section>
@@ -60,16 +56,6 @@
                     </label>
                     <div class="field-grid">
                         <label class="field">
-                            <span>Ngày bắt đầu <b>*</b></span>
-                            <input id="eventDate" type="date" required>
-                        </label>
-                        <label class="field">
-                            <span>Ngày kết thúc</span>
-                            <input id="eventEndDate" type="date">
-                        </label>
-                    </div>
-                    <div class="field-grid">
-                        <label class="field">
                             <span>Giờ bắt đầu <b>*</b></span>
                             <input id="eventStart" type="time" value="09:00" required>
                         </label>
@@ -83,12 +69,12 @@
                         <input id="eventLocation" type="text" placeholder="Thêm địa điểm">
                     </label>
                     <label class="field">
-                        <span>Mô tả</span>
-                        <textarea id="eventNotes" rows="3" placeholder="Ghi chú cho sự kiện"></textarea>
-                    </label>
-                    <label class="field">
                         <span>URL</span>
                         <input id="eventUrl" type="url" placeholder="https://...">
+                    </label>
+                    <label class="field">
+                        <span>Mô tả</span>
+                        <textarea id="eventNotes" rows="3" placeholder="Ghi chú cho sự kiện"></textarea>
                     </label>
                     <div class="form-actions">
                         <button class="button button-primary" type="submit" id="saveEventButton">+ Thêm lịch</button>
