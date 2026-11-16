@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Tạo lịch hàng loạt theo 12 tháng, hỗ trợ lịch Dương và lịch Âm Việt Nam, xuất tệp ICS.">
+    <title>Batch Calendar ICS | PhongNH</title>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <main class="app-shell">
+        <header class="topbar">
+            <div class="brand">
+                <a class="brand-mark" href="../../" aria-label="Về trang chủ">P</a>
+                <div>
+                    <p class="eyebrow">PHONGNH / TOOLKIT</p>
+                    <h1>Batch Calendar <span>ICS</span></h1>
+                </div>
+            </div>
+            <div class="topbar-actions">
+                <label class="year-control">
+                    <span>Năm xem</span>
+                    <select id="yearSelect" aria-label="Chọn năm"></select>
+                </label>
+                <div class="view-switch" role="group" aria-label="Kiểu lịch">
+                    <button class="switch-button is-active" data-calendar="solar" type="button">Dương lịch</button>
+                    <button class="switch-button" data-calendar="lunar" type="button">Âm lịch</button>
+                </div>
+                <button class="primary-button" id="exportAllButton" type="button">
+                    <span aria-hidden="true">↓</span> Xuất tất cả .ics
+                </button>
+            </div>
+        </header>
+
+        <section class="intro">
+            <div>
+                <p class="eyebrow">LỊCH NĂM <span id="introYear"></span></p>
+                <h2>Chọn ngày, thêm lịch trình.</h2>
+                <p class="intro-copy">Chọn một hoặc nhiều ngày trong bảng lịch để tạo sự kiện và xuất nhanh tệp lịch chuẩn ICS.</p>
+            </div>
+            <div class="legend" aria-label="Chú thích">
+                <span><i class="legend-dot event"></i> Có lịch trình</span>
+                <span><i class="legend-dot selected"></i> Đang chọn</span>
+                <span><i class="legend-dot today"></i> Hôm nay</span>
+            </div>
+        </section>
+
+        <div class="workspace">
+            <section class="calendar-area" aria-label="Lịch 12 tháng">
+                <div class="calendar-toolbar">
+                    <button class="text-button" id="todayButton" type="button">Về hôm nay</button>
+                    <p><strong id="selectedCount">0</strong> ngày đang chọn</p>
+                    <button class="text-button danger-text is-hidden" id="clearSelectionButton" type="button">Bỏ chọn</button>
+                </div>
+                <div class="months-grid" id="monthsGrid"></div>
+            </section>
+
+            <aside class="sidebar" aria-label="Thông tin lịch trình">
+                <div class="sidebar-heading">
+                    <div>
+                        <p class="eyebrow">SIDEBAR-RIGHT</p>
+                        <h2>Thông tin lịch</h2>
+                    </div>
+                    <span class="event-count" id="eventCount">0</span>
+                </div>
+                <p class="sidebar-hint" id="selectionHint">Chọn ngày trên lịch để bắt đầu tạo lịch trình.</p>
+
+                <form id="eventForm" class="event-form">
+                    <label>
+                        <span>Tiêu đề lịch trình</span>
+                        <input id="eventTitle" type="text" placeholder="Ví dụ: Họp nhóm dự án" maxlength="120" required>
+                    </label>
+                    <div class="form-row">
+                        <label>
+                            <span>Bắt đầu</span>
+                            <input id="eventStart" type="time" value="09:00" required>
+                        </label>
+                        <label>
+                            <span>Kết thúc</span>
+                            <input id="eventEnd" type="time" value="10:00" required>
+                        </label>
+                    </div>
+                    <label>
+                        <span>Địa điểm</span>
+                        <input id="eventLocation" type="text" placeholder="Phòng họp, địa chỉ..." maxlength="160">
+                    </label>
+                    <label>
+                        <span>Ghi chú</span>
+                        <textarea id="eventNotes" rows="3" placeholder="Thêm thông tin cần nhớ..." maxlength="500"></textarea>
+                    </label>
+                    <div class="form-actions">
+                        <button class="primary-button full-width" type="submit" id="saveEventButton">Lưu lịch trình</button>
+                        <button class="secondary-button full-width" type="button" id="deleteEventButton" disabled>Xóa lịch trình</button>
+                    </div>
+                </form>
+
+                <div class="upcoming">
+                    <div class="section-label">
+                        <span>LỊCH TRÌNH ĐÃ TẠO</span>
+                        <button class="icon-button" id="clearEventsButton" type="button" title="Xóa tất cả lịch trình" aria-label="Xóa tất cả lịch trình">⌫</button>
+                    </div>
+                    <div class="event-list" id="eventList">
+                        <p class="empty-state">Chưa có lịch trình nào trong năm này.</p>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </main>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="./app.js"></script>
+</body>
+</html>
