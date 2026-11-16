@@ -14,42 +14,31 @@
                 <span class="brand-icon">C</span>
                 <span>Calender <b>ICS</b></span>
             </a>
-            <div class="top-actions">
-                <div class="calendar-mode" role="group" aria-label="Kiểu lịch">
-                    <button class="mode-button is-active" data-calendar="solar" type="button">Dương lịch</button>
-                    <button class="mode-button" data-calendar="lunar" type="button">Âm lịch</button>
-                </div>
-                <label class="year-picker">
-                    <span>Năm</span>
-                    <select id="yearSelect" aria-label="Chọn năm"></select>
-                </label>
-                <button class="button button-outline" id="todayButton" type="button">Hôm nay</button>
-            </div>
         </header>
-
-        <section class="page-heading">
-            <div>
-                <p class="kicker">LỊCH NĂM <span id="introYear"></span></p>
-                <h1>Lịch của bạn, <em>theo cách của bạn.</em></h1>
-                <p class="heading-copy">Xem trọn 12 tháng, thêm lịch trình và xuất ngay lịch chuẩn ICS.</p>
-            </div>
-            <div class="heading-stats">
-                <div><strong id="eventCount">0</strong><span>sự kiện trong năm</span></div>
-                <div><strong id="selectedCount">0</strong><span>ngày đang chọn</span></div>
-            </div>
-        </section>
 
         <div class="content-layout">
             <section class="calendar-panel" aria-label="Bảng lịch 12 tháng">
                 <div class="panel-topline">
                     <div class="calendar-caption">
                         <span class="caption-icon">▦</span>
-                        <div><strong>Bảng lịch 12 tháng</strong><small>Thứ 2 là ngày đầu tuần</small></div>
+                        <div><strong>Bảng lịch 12 tháng <span id="introYear"></span></strong><small>Thứ 2 là ngày đầu tuần</small></div>
                     </div>
-                    <div class="calendar-legend">
-                        <span><i class="dot dot-event"></i>Có sự kiện</span>
-                        <span><i class="dot dot-selected"></i>Đang chọn</span>
+                    <div class="calendar-controls">
+                        <div class="calendar-mode" role="group" aria-label="Kiểu lịch">
+                            <button class="mode-button is-active" data-calendar="solar" type="button">Dương</button>
+                            <button class="mode-button" data-calendar="lunar" type="button">Âm</button>
+                        </div>
+                        <label class="year-picker">
+                            <span>Năm</span>
+                            <select id="yearSelect" aria-label="Chọn năm"></select>
+                        </label>
+                        <button class="button button-outline" id="todayButton" type="button">Hôm nay</button>
                     </div>
+                </div>
+                <div class="calendar-legend">
+                    <span><i class="dot dot-event"></i>Có sự kiện</span>
+                    <span><i class="dot dot-selected"></i>Đang chọn</span>
+                    <span id="eventCount">0 sự kiện</span>
                 </div>
                 <div class="months-grid" id="monthsGrid"></div>
             </section>
@@ -62,7 +51,7 @@
                     </div>
                     <button class="close-editor" id="clearFormButton" type="button" aria-label="Đặt lại biểu mẫu">×</button>
                 </div>
-                <p class="editor-hint" id="selectionHint">Chọn ngày trên lịch hoặc chọn một sự kiện bên dưới.</p>
+                <p class="editor-hint" id="selectionHint">Tạo một sự kiện kéo dài nhiều ngày hoặc chọn sự kiện để chỉnh sửa.</p>
 
                 <form id="eventForm">
                     <label class="field">

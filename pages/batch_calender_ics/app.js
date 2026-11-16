@@ -1,12 +1,18 @@
 const monthNames = ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"];
 const weekdayNames = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const today = new Date();
+const storedEvents = JSON.parse(localStorage.getItem("batch-calendar-events") || "[]");
 const state = {
     year: today.getFullYear(),
     calendar: "solar",
     selectedDates: new Set(),
-    events: JSON.parse(localStorage.getItem("batch-calendar-events") || "{}"),
-    editingDate: null
+    events: Array.isArray(storedEvents) ? storedEvents : Object.entries(storedEvents).map(([key, event], index) => ({
+        id: `legacy-${index}-${key}`,
+        ...event,
+        date: event.date || key,
+        endDate: event.endDate || event.date || key
+    })),
+    editingId: null
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -112,6 +118,18 @@ function saveEvents() {
     localStorage.setItem("batch-calendar-events", JSON.stringify(state.events));
 }
 
+function eventContainsDate(event, key) {
+    return key >= event.date && key <= (event.endDate || event.date);
+}
+
+function eventsForYear() {
+    return state.events.filter((event) => {
+        const startYear = Number(event.date.slice(0, 4));
+        const endYear = Number((event.endDate || event.date).slice(0, 4));
+        return startYear <= state.year && endYear >= state.year;
+    });
+}
+
 function renderYearOptions() {
     const select = $("#yearSelect");
     select.innerHTML = "";
@@ -123,7 +141,7 @@ function renderYearOptions() {
 }
 
 function renderCalendar() {
-    $("#introYear").textContent = state.year;
+    $("#introYear").textContent = `(${state.year})`;
     const grid = $("#monthsGrid");
     grid.innerHTML = "";
     for (let month = 0; month < 12; month += 1) {
@@ -149,9 +167,10 @@ function renderCalendar() {
             dayButton.className = "day";
             if (key === dateKey(today)) dayButton.classList.add("is-today");
             if (state.selectedDates.has(key)) dayButton.classList.add("is-selected");
-            if (state.events[key]) dayButton.classList.add("has-event");
+            if (state.events.some((event) => eventContainsDate(event, key))) dayButton.classList.add("has-event");
             dayButton.dataset.key = key;
-            dayButton.title = state.events[key] ? `${state.events[key].title} - ${formatDate(key)}` : `Chọn ${formatDate(key)}`;
+            const matchingEvent = state.events.find((event) => eventContainsDate(event, key));
+            dayButton.title = matchingEvent ? `${matchingEvent.title} - ${formatDate(key)}` : `Chọn ${formatDate(key)}`;
             const lunar = lunarDate(date);
             dayButton.innerHTML = state.calendar === "solar"
                 ? `<span class="day-number">${day}</span><span class="lunar-number">${lunar}</span>`
@@ -166,20 +185,24 @@ function renderCalendar() {
 function toggleDate(key) {
     if (state.selectedDates.has(key)) state.selectedDates.delete(key);
     else state.selectedDates.add(key);
-    state.editingDate = state.selectedDates.size === 1 ? [...state.selectedDates][0] : null;
+    if (state.selectedDates.size === 1) {
+        state.editingId = state.events.find((event) => eventContainsDate(event, key))?.id || null;
+    } else {
+        state.editingId = null;
+    }
     renderCalendar();
     renderSidebar();
 }
 
 function renderSidebar() {
     const selected = [...state.selectedDates].sort();
-    $("#selectedCount").textContent = selected.length;
-    $("#eventCount").textContent = Object.keys(state.events).filter((key) => parseDate(key).getFullYear() === state.year).length;
+    const yearEvents = eventsForYear();
+    $("#eventCount").textContent = `${yearEvents.length} sự kiện`;
     $("#selectionHint").textContent = selected.length
-        ? `${selected.length} ngày: ${selected.length <= 2 ? selected.map(formatDate).join(" và ") : `${formatDate(selected[0])} và ${selected.length - 1} ngày khác`}`
-        : "Chọn ngày trên lịch để bắt đầu tạo lịch trình.";
-    const existing = state.editingDate && state.events[state.editingDate];
-    const selectedDate = state.editingDate || selected[0] || "";
+        ? `${selected.length} ngày đang chọn`
+        : "Tạo một sự kiện kéo dài nhiều ngày hoặc chọn sự kiện để chỉnh sửa.";
+    const existing = state.events.find((event) => event.id === state.editingId);
+    const selectedDate = selected[0] || "";
     $("#eventTitle").value = existing?.title || "";
     $("#eventDate").value = existing?.date || selectedDate;
     $("#eventEndDate").value = existing?.endDate || existing?.date || selectedDate;
@@ -190,16 +213,15 @@ function renderSidebar() {
     $("#eventUrl").value = existing?.url || "";
     $("#deleteEventButton").disabled = !existing;
     $("#saveEventButton").textContent = existing ? "Lưu thay đổi" : "+ Thêm lịch";
-    const events = Object.entries(state.events)
-        .filter(([key]) => parseDate(key).getFullYear() === state.year)
-        .sort(([a], [b]) => a.localeCompare(b));
-    $("#eventList").innerHTML = events.length ? events.map(([key, event]) => `<button class="event-item${key === state.editingDate ? " is-active" : ""}" type="button" data-event-key="${key}">
-        <strong>${escapeHtml(event.title)}</strong><span>${formatDate(key)}${event.endDate && event.endDate !== key ? ` → ${formatDate(event.endDate)}` : ""} · ${event.start} - ${event.end}</span>${event.location ? `<span>${escapeHtml(event.location)}</span>` : ""}
-    </button>`).join("") : '<p class="empty-state">Chưa có lịch trình nào trong năm này.</p>';
-    document.querySelectorAll("[data-event-key]").forEach((item) => item.addEventListener("click", () => {
-        const key = item.dataset.eventKey;
-        state.selectedDates = new Set([key]);
-        state.editingDate = key;
+    $("#eventList").innerHTML = yearEvents.length ? yearEvents
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((event) => `<button class="event-item${event.id === state.editingId ? " is-active" : ""}" type="button" data-event-id="${event.id}">
+        <strong>${escapeHtml(event.title)}</strong><span>${formatDate(event.date)}${event.endDate && event.endDate !== event.date ? ` → ${formatDate(event.endDate)}` : ""} · ${event.start} - ${event.end}</span>${event.location ? `<span>${escapeHtml(event.location)}</span>` : ""}
+    </button>`).join("") : '<p class="empty-state">Chưa có sự kiện nào trong năm này.</p>';
+    document.querySelectorAll("[data-event-id]").forEach((item) => item.addEventListener("click", () => {
+        const event = state.events.find((entry) => entry.id === item.dataset.eventId);
+        state.selectedDates = new Set([event.date]);
+        state.editingId = event.id;
         renderCalendar();
         renderSidebar();
     }));
@@ -223,10 +245,9 @@ function createIcs(events) {
         const clean = (value = "") => value.replace(/([,;])/g, "\\$1").replace(/\n/g, "\\n");
         const start = event.start.replace(":", "");
         const end = event.end.replace(":", "");
-        const date = (event.date || key).replace(/-/g, "");
-        const endDate = (event.endDate || event.date || key).replace(/-/g, "");
-        lines.push("BEGIN:VEVENT", `UID:${key}-${start}@phongnh`, `DTSTAMP:${date}T${start}00`, `DTSTART:${date}T${start}00`, `DTEND:${date}T${end}00`, `SUMMARY:${clean(event.title)}`);
-        if (endDate !== date) lines[lines.length - 1] = `DTEND:${endDate}T${end}00`;
+        const date = event.date.replace(/-/g, "");
+        const endDate = (event.endDate || event.date).replace(/-/g, "");
+        lines.push("BEGIN:VEVENT", `UID:${event.id}@phongnh`, `DTSTAMP:${date}T${start}00`, `DTSTART:${date}T${start}00`, `DTEND:${endDate}T${end}00`, `SUMMARY:${clean(event.title)}`);
         if (event.location) lines.push(`LOCATION:${clean(event.location)}`);
         if (event.notes) lines.push(`DESCRIPTION:${clean(event.notes)}`);
         if (event.url) lines.push(`URL:${clean(event.url)}`);
@@ -253,7 +274,7 @@ function downloadIcs(events, filename) {
 $("#yearSelect").addEventListener("change", (event) => {
     state.year = Number(event.target.value);
     state.selectedDates.clear();
-    state.editingDate = null;
+    state.editingId = null;
     renderCalendar();
     renderSidebar();
 });
@@ -267,18 +288,19 @@ $("#todayButton").addEventListener("click", () => {
     state.year = today.getFullYear();
     $("#yearSelect").value = state.year;
     state.selectedDates = new Set([dateKey(today)]);
-    state.editingDate = state.events[dateKey(today)] ? dateKey(today) : null;
+    state.editingId = state.events.find((event) => eventContainsDate(event, dateKey(today)))?.id || null;
     renderCalendar();
     renderSidebar();
 });
 $("#clearFormButton").addEventListener("click", () => {
     state.selectedDates.clear();
-    state.editingDate = null;
+    state.editingId = null;
     renderCalendar();
     renderSidebar();
 });
 $("#eventForm").addEventListener("submit", (event) => {
     event.preventDefault();
+    const isEditing = Boolean(state.editingId);
     const details = {
         title: $("#eventTitle").value.trim(),
         date: $("#eventDate").value,
@@ -301,27 +323,34 @@ $("#eventForm").addEventListener("submit", (event) => {
         showToast("Giờ kết thúc cần sau giờ bắt đầu.");
         return;
     }
-    const datesToSave = state.selectedDates.size ? [...state.selectedDates] : [details.date];
-    datesToSave.forEach((key) => { state.events[key] = { ...details }; });
+    const eventDetails = {
+        id: state.editingId || `event-${Date.now()}`,
+        ...details
+    };
+    if (state.editingId) {
+        state.events = state.events.map((entry) => entry.id === state.editingId ? eventDetails : entry);
+    } else {
+        state.events.push(eventDetails);
+    }
     saveEvents();
     state.selectedDates = new Set([details.date]);
-    state.editingDate = details.date;
+    state.editingId = eventDetails.id;
     renderCalendar();
     renderSidebar();
-    showToast(`Đã lưu lịch trình cho ${state.selectedDates.size} ngày.`);
+    showToast(isEditing ? "Đã lưu sự kiện." : "Đã thêm sự kiện.");
 });
 $("#deleteEventButton").addEventListener("click", () => {
-    if (!state.editingDate) return;
-    delete state.events[state.editingDate];
+    if (!state.editingId) return;
+    state.events = state.events.filter((event) => event.id !== state.editingId);
     saveEvents();
+    state.editingId = null;
+    state.selectedDates.clear();
     renderCalendar();
     renderSidebar();
     showToast("Đã xóa lịch trình.");
 });
 $("#exportAllButton").addEventListener("click", () => {
-    const events = Object.entries(state.events)
-        .filter(([key]) => parseDate(key).getFullYear() === state.year)
-        .map(([key, event]) => ({ key, event }));
+    const events = eventsForYear().map((event) => ({ key: event.date, event }));
     downloadIcs(events, `lich-${state.year}.ics`);
 });
 

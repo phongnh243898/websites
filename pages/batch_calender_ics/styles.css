@@ -241,6 +241,14 @@ textarea:focus {
     padding: 0 2px 17px;
 }
 
+.calendar-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
 .calendar-caption { min-width: 0; gap: 10px; }
 
 .caption-icon {
@@ -261,8 +269,11 @@ textarea:focus {
 .calendar-caption small { margin-top: 3px; color: var(--muted); font-size: 10px; }
 
 .calendar-legend {
-    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 15px;
+    margin: -4px 2px 14px;
     color: var(--muted);
     font-size: 10px;
     font-weight: 700;
@@ -545,7 +556,7 @@ textarea:focus {
     }
     .content-layout { grid-template-columns: 1fr; }
     .event-sidebar { order: -1; }
-    .months-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .months-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 640px) {
@@ -563,8 +574,18 @@ textarea:focus {
         justify-content: space-between;
         width: 100%;
     }
-    .panel-topline { align-items: flex-start; }
-    .calendar-legend { display: none; }
+    .panel-topline {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+    .calendar-controls {
+        justify-content: stretch;
+        width: 100%;
+    }
+    .calendar-controls .calendar-mode,
+    .calendar-controls .year-picker,
+    .calendar-controls .button { flex: 1 1 auto; }
+    .calendar-controls .year-picker select { min-width: 0; }
     .months-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
