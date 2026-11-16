@@ -18,23 +18,21 @@
 
         <div class="content-layout">
             <section class="calendar-panel" aria-label="Bảng lịch 12 tháng">
-                <div class="calendar-toolbar">
-                    <div class="calendar-controls">
-                        <div class="calendar-mode" role="group" aria-label="Kiểu lịch">
-                            <button class="mode-button is-active" data-calendar="solar" type="button">Dương</button>
-                            <button class="mode-button" data-calendar="lunar" type="button">Âm</button>
-                        </div>
-                        <label class="year-picker">
-                            <span>Năm</span>
-                            <select id="yearSelect" aria-label="Chọn năm"></select>
-                        </label>
-                        <button class="button button-outline" id="todayButton" type="button">Hôm nay</button>
+                <div class="calendar-controls">
+                    <div class="calendar-mode" role="group" aria-label="Kiểu lịch">
+                        <button class="mode-button is-active" data-calendar="solar" type="button">Dương</button>
+                        <button class="mode-button" data-calendar="lunar" type="button">Âm</button>
                     </div>
-                    <div class="calendar-legend">
-                        <span><i class="dot dot-event"></i>Có sự kiện</span>
-                        <span><i class="dot dot-selected"></i>Đang chọn</span>
-                        <span id="eventCount">0 sự kiện</span>
-                    </div>
+                    <label class="year-picker">
+                        <span>Năm</span>
+                        <select id="yearSelect" aria-label="Chọn năm"></select>
+                    </label>
+                    <button class="button button-outline" id="todayButton" type="button">Hôm nay</button>
+                </div>
+                <div class="calendar-legend">
+                    <span><i class="dot dot-event"></i>Có sự kiện</span>
+                    <span><i class="dot dot-selected"></i>Đang chọn</span>
+                    <span id="eventCount">0 sự kiện</span>
                 </div>
                 <div class="months-grid" id="monthsGrid"></div>
             </section>
@@ -42,7 +40,6 @@
             <aside class="event-sidebar" aria-label="Cấu hình sự kiện">
                 <div class="sidebar-title">
                     <div>
-                        <p class="kicker">EVENT EDITOR</p>
                         <h2>Cấu hình sự kiện</h2>
                     </div>
                     <button class="close-editor" id="clearFormButton" type="button" aria-label="Đặt lại biểu mẫu">×</button>
