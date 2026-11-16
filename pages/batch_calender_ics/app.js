@@ -174,24 +174,27 @@ function toggleDate(key) {
 function renderSidebar() {
     const selected = [...state.selectedDates].sort();
     $("#selectedCount").textContent = selected.length;
-    $("#clearSelectionButton").classList.toggle("is-hidden", selected.length === 0);
     $("#eventCount").textContent = Object.keys(state.events).filter((key) => parseDate(key).getFullYear() === state.year).length;
     $("#selectionHint").textContent = selected.length
         ? `${selected.length} ngày: ${selected.length <= 2 ? selected.map(formatDate).join(" và ") : `${formatDate(selected[0])} và ${selected.length - 1} ngày khác`}`
         : "Chọn ngày trên lịch để bắt đầu tạo lịch trình.";
     const existing = state.editingDate && state.events[state.editingDate];
+    const selectedDate = state.editingDate || selected[0] || "";
     $("#eventTitle").value = existing?.title || "";
+    $("#eventDate").value = existing?.date || selectedDate;
+    $("#eventEndDate").value = existing?.endDate || existing?.date || selectedDate;
     $("#eventStart").value = existing?.start || "09:00";
     $("#eventEnd").value = existing?.end || "10:00";
     $("#eventLocation").value = existing?.location || "";
     $("#eventNotes").value = existing?.notes || "";
+    $("#eventUrl").value = existing?.url || "";
     $("#deleteEventButton").disabled = !existing;
-    $("#saveEventButton").textContent = existing ? "Cập nhật lịch trình" : "Lưu lịch trình";
+    $("#saveEventButton").textContent = existing ? "Lưu thay đổi" : "+ Thêm lịch";
     const events = Object.entries(state.events)
         .filter(([key]) => parseDate(key).getFullYear() === state.year)
         .sort(([a], [b]) => a.localeCompare(b));
-    $("#eventList").innerHTML = events.length ? events.map(([key, event]) => `<button class="event-item" type="button" data-event-key="${key}">
-        <strong>${escapeHtml(event.title)}</strong><span>${formatDate(key)} · ${event.start} - ${event.end}</span>${event.location ? `<span>${escapeHtml(event.location)}</span>` : ""}
+    $("#eventList").innerHTML = events.length ? events.map(([key, event]) => `<button class="event-item${key === state.editingDate ? " is-active" : ""}" type="button" data-event-key="${key}">
+        <strong>${escapeHtml(event.title)}</strong><span>${formatDate(key)}${event.endDate && event.endDate !== key ? ` → ${formatDate(event.endDate)}` : ""} · ${event.start} - ${event.end}</span>${event.location ? `<span>${escapeHtml(event.location)}</span>` : ""}
     </button>`).join("") : '<p class="empty-state">Chưa có lịch trình nào trong năm này.</p>';
     document.querySelectorAll("[data-event-key]").forEach((item) => item.addEventListener("click", () => {
         const key = item.dataset.eventKey;
@@ -220,10 +223,13 @@ function createIcs(events) {
         const clean = (value = "") => value.replace(/([,;])/g, "\\$1").replace(/\n/g, "\\n");
         const start = event.start.replace(":", "");
         const end = event.end.replace(":", "");
-        const date = key.replace(/-/g, "");
+        const date = (event.date || key).replace(/-/g, "");
+        const endDate = (event.endDate || event.date || key).replace(/-/g, "");
         lines.push("BEGIN:VEVENT", `UID:${key}-${start}@phongnh`, `DTSTAMP:${date}T${start}00`, `DTSTART:${date}T${start}00`, `DTEND:${date}T${end}00`, `SUMMARY:${clean(event.title)}`);
+        if (endDate !== date) lines[lines.length - 1] = `DTEND:${endDate}T${end}00`;
         if (event.location) lines.push(`LOCATION:${clean(event.location)}`);
         if (event.notes) lines.push(`DESCRIPTION:${clean(event.notes)}`);
+        if (event.url) lines.push(`URL:${clean(event.url)}`);
         lines.push("END:VEVENT");
     });
     lines.push("END:VCALENDAR");
@@ -261,11 +267,11 @@ $("#todayButton").addEventListener("click", () => {
     state.year = today.getFullYear();
     $("#yearSelect").value = state.year;
     state.selectedDates = new Set([dateKey(today)]);
-    state.editingDate = dateKey(today);
+    state.editingDate = state.events[dateKey(today)] ? dateKey(today) : null;
     renderCalendar();
     renderSidebar();
 });
-$("#clearSelectionButton").addEventListener("click", () => {
+$("#clearFormButton").addEventListener("click", () => {
     state.selectedDates.clear();
     state.editingDate = null;
     renderCalendar();
@@ -273,24 +279,33 @@ $("#clearSelectionButton").addEventListener("click", () => {
 });
 $("#eventForm").addEventListener("submit", (event) => {
     event.preventDefault();
-    if (!state.selectedDates.size) {
-        showToast("Hãy chọn ít nhất một ngày trên lịch.");
-        return;
-    }
     const details = {
         title: $("#eventTitle").value.trim(),
+        date: $("#eventDate").value,
+        endDate: $("#eventEndDate").value || $("#eventDate").value,
         start: $("#eventStart").value,
         end: $("#eventEnd").value,
         location: $("#eventLocation").value.trim(),
-        notes: $("#eventNotes").value.trim()
+        notes: $("#eventNotes").value.trim(),
+        url: $("#eventUrl").value.trim()
     };
-    if (details.end <= details.start) {
+    if (!details.date) {
+        showToast("Hãy chọn ngày bắt đầu.");
+        return;
+    }
+    if (details.endDate < details.date) {
+        showToast("Ngày kết thúc cần sau ngày bắt đầu.");
+        return;
+    }
+    if (details.end <= details.start && details.endDate === details.date) {
         showToast("Giờ kết thúc cần sau giờ bắt đầu.");
         return;
     }
-    [...state.selectedDates].forEach((key) => { state.events[key] = { ...details }; });
+    const datesToSave = state.selectedDates.size ? [...state.selectedDates] : [details.date];
+    datesToSave.forEach((key) => { state.events[key] = { ...details }; });
     saveEvents();
-    state.editingDate = [...state.selectedDates][0];
+    state.selectedDates = new Set([details.date]);
+    state.editingDate = details.date;
     renderCalendar();
     renderSidebar();
     showToast(`Đã lưu lịch trình cho ${state.selectedDates.size} ngày.`);
@@ -302,17 +317,6 @@ $("#deleteEventButton").addEventListener("click", () => {
     renderCalendar();
     renderSidebar();
     showToast("Đã xóa lịch trình.");
-});
-$("#clearEventsButton").addEventListener("click", () => {
-    const keys = Object.keys(state.events).filter((key) => parseDate(key).getFullYear() === state.year);
-    if (!keys.length) return;
-    keys.forEach((key) => delete state.events[key]);
-    saveEvents();
-    state.selectedDates.clear();
-    state.editingDate = null;
-    renderCalendar();
-    renderSidebar();
-    showToast(`Đã xóa ${keys.length} lịch trình trong năm ${state.year}.`);
 });
 $("#exportAllButton").addEventListener("click", () => {
     const events = Object.entries(state.events)
