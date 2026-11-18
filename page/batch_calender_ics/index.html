@@ -1,15 +1,639 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="0; url=../../pages/batch_calender_ics/">
-    <title>Calender ICS</title>
+    <title>Quản Lý Sự Kiện</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    </style>
 </head>
-<body>
-    <p>Đang chuyển đến <a href="../../pages/batch_calender_ics/">Calender ICS</a>...</p>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 px-4 sm:px-8 py-4 flex items-center justify-between shadow-sm">
+        <div class="flex items-center space-x-3">
+            <div class="bg-blue-600 text-white p-2.5 rounded-2xl font-bold text-lg shadow-sm shadow-blue-200">📅</div>
+            <div>
+                <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">Quản Lý Lịch Sự Kiện</h1>
+                <p class="text-[11px] text-slate-500">Tạo sự kiện, chọn ngày trên lịch và xuất file ICS chuẩn xác</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Body -->
+    <div class="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-6 p-4 sm:p-6 max-w-[1600px] mx-auto w-full">
+        
+        <!-- Phần Calendar & 12 tháng -->
+        <main id="calendarSection" class="xl:col-span-8 flex flex-col space-y-5 order-2 xl:order-1">
+            
+            <!-- Bộ chọn năm & Chú thích -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center space-x-6 text-xs text-slate-600 font-medium">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2.5 h-2.5 bg-red-500 rounded-full"></div>
+                        <span>Có sự kiện</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2.5 h-2.5 bg-blue-600 rounded-full"></div>
+                        <span>Đang chọn</span>
+                    </div>
+                    <div class="flex items-center space-x-2 font-semibold text-slate-700">
+                        <span id="totalEventsLegend" class="bg-slate-100 px-2.5 py-1 rounded-lg">0 sự kiện</span>
+                    </div>
+                </div>
+
+                <!-- Input chọn năm -->
+                <div class="flex items-center space-x-2.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl shadow-sm hover:border-blue-300 transition">
+                    <span class="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Năm:
+                    </span>
+                    <input type="number" id="yearInput" value="2026" class="w-20 bg-transparent text-sm font-bold text-slate-800 text-center focus:outline-none">
+                </div>
+            </div>
+
+            <!-- Bảng 12 tháng -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6">
+                <div id="monthsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <!-- Render bằng JS -->
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Sidebar Cấu hình & Danh sách -->
+        <aside class="xl:col-span-4 flex flex-col space-y-6 order-1 xl:order-2">
+            
+            <!-- Section 1: Cấu hình sự kiện -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6 relative">
+                <div class="flex justify-between items-start mb-1">
+                    <h2 class="text-lg font-bold text-slate-900">Cấu hình sự kiện</h2>
+                    <button id="btnCloseForm" class="text-slate-400 hover:text-slate-600 font-bold text-lg leading-none">×</button>
+                </div>
+                <p class="text-xs text-slate-500 mb-4">Tạo một sự kiện kéo dài nhiều ngày hoặc chọn sự kiện để chỉnh sửa.</p>
+
+                <form id="eventForm" class="space-y-3.5">
+                    <input type="hidden" id="editingEventId">
+                    
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Tiêu đề (SUMMARY) <span class="text-red-500">*</span></label>
+                        <input type="text" id="eventTitle" required placeholder="Tên sự kiện" class="w-full px-3.5 py-2 text-sm border border-slate-200 bg-slate-50/50 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                    </div>
+
+                    <!-- Trường ngày cho phép nhập trực tiếp + nút chọn trên lịch -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-semibold text-slate-700">Chọn ngày <span class="text-red-500">*</span></label>
+                            <span id="selectedDaysCount" class="text-[11px] font-semibold text-blue-600">0 ngày</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="selectedDaysInput" placeholder="VD: 2026-11-20, 2026-11-21" class="flex-1 px-3.5 py-2 text-xs border border-slate-200 bg-slate-50/50 rounded-xl text-slate-800 font-medium focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                            <button type="button" id="btnScrollToCalendar" class="shrink-0 px-3 py-2 text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 font-semibold rounded-xl border border-blue-200/70 transition">
+                                Chọn trên lịch ↓
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Giờ bắt đầu <span class="text-red-500">*</span></label>
+                            <input type="time" id="eventStartTime" value="09:00" required class="w-full px-3.5 py-2 text-sm border border-slate-200 bg-slate-50/50 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Giờ kết thúc <span class="text-red-500">*</span></label>
+                            <input type="time" id="eventEndTime" value="10:00" required class="w-full px-3.5 py-2 text-sm border border-slate-200 bg-slate-50/50 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                        </div>
+                    </div>
+
+                    <!-- Các trường bổ sung chuẩn ICS: Trạng thái & Rảnh/Bận -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Trạng thái (STATUS)</label>
+                            <select id="eventStatus" class="w-full px-3 py-2 text-xs border border-slate-200 bg-slate-50/50 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                                <option value="CONFIRMED">Đã xác nhận</option>
+                                <option value="TENTATIVE">Dự kiến</option>
+                                <option value="CANCELLED">Đã hủy</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Hiển thị (TRANSP)</label>
+                            <select id="eventTransp" class="w-full px-3 py-2 text-xs border border-slate-200 bg-slate-50/50 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                                <option value="OPAQUE">Bận (Busy)</option>
+                                <option value="TRANSPARENT">Rảnh (Free)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Các trường bổ sung chuẩn ICS: Phân loại & Nhắc nhở -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Phân loại (CATEGORIES)</label>
+                            <input type="text" id="eventCategory" placeholder="VD: Công việc, Cá nhân" class="w-full px-3.5 py-2 text-xs border border-slate-200 bg-slate-50/50 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Nhắc nhở (VALARM)</label>
+                            <select id="eventAlarm" class="w-full px-3 py-2 text-xs border border-slate-200 bg-slate-50/50 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                                <option value="">Không nhắc</option>
+                                <option value="15">Trước 15 phút</option>
+                                <option value="30">Trước 30 phút</option>
+                                <option value="60">Trước 1 giờ</option>
+                                <option value="1440">Trước 1 ngày</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Địa điểm (LOCATION)</label>
+                        <input type="text" id="eventLocation" placeholder="Thêm địa điểm" class="w-full px-3.5 py-2 text-sm border border-slate-200 bg-slate-50/50 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">URL</label>
+                        <input type="url" id="eventUrl" placeholder="https://..." class="w-full px-3.5 py-2 text-sm border border-slate-200 bg-slate-50/50 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Mô tả (DESCRIPTION)</label>
+                        <textarea id="eventDesc" rows="2" placeholder="Ghi chú cho sự kiện" class="w-full px-3.5 py-2 text-sm border border-slate-200 bg-slate-50/50 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition"></textarea>
+                    </div>
+
+                    <div class="flex items-center space-x-2.5 pt-2">
+                        <button type="submit" id="btnSaveEvent" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-xl text-sm transition shadow-sm shadow-blue-200">+ Thêm lịch</button>
+                        <button type="button" id="btnClearForm" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium py-2.5 px-4 rounded-xl text-sm transition">Xóa</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Section 2: Danh sách sự kiện -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6 flex-1 flex flex-col">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-600">DANH SÁCH SỰ KIỆN</h2>
+                    <button id="btnExportIcs" class="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center space-x-1 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition">
+                        <span>↓ Xuất lịch</span>
+                    </button>
+                </div>
+                
+                <div id="eventListContainer" class="space-y-3 overflow-y-auto max-h-[340px] pr-1">
+                    <p class="text-xs text-slate-400 italic text-center py-6">Chưa có sự kiện nào trong năm này.</p>
+                </div>
+            </div>
+
+        </aside>
+    </div>
+
     <script>
-        window.location.replace("../../pages/batch_calender_ics/");
+        let selectedYear = 2026;
+        let selectedDates = new Set(); 
+        let events = JSON.parse(localStorage.getItem('calendar_events_v6') || '[]');
+        let currentEditingId = null;
+
+        const weekDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+        const monthNames = [
+            'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+            'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
+        ];
+
+        function solarToLunar(solarYear, solarMonth, solarDay) {
+            let lunarDay = solarDay - 10;
+            let lunarMonth = solarMonth;
+            if (lunarDay <= 0) {
+                lunarDay += 29;
+                lunarMonth -= 1;
+                if (lunarMonth <= 0) { lunarMonth = 12; }
+            }
+            return { day: lunarDay, month: lunarMonth };
+        }
+
+        const yearInput = document.getElementById('yearInput');
+        const monthsGrid = document.getElementById('monthsGrid');
+        const eventForm = document.getElementById('eventForm');
+        const eventListContainer = document.getElementById('eventListContainer');
+        const selectedDaysInput = document.getElementById('selectedDaysInput');
+        const selectedDaysCount = document.getElementById('selectedDaysCount');
+        const btnScrollToCalendar = document.getElementById('btnScrollToCalendar');
+        const totalEventsLegend = document.getElementById('totalEventsLegend');
+        const btnCloseForm = document.getElementById('btnCloseForm');
+        const btnClearForm = document.getElementById('btnClearForm');
+
+        // Bấm nút "Chọn trên lịch" sẽ trượt mượt đến bảng lịch tháng
+        btnScrollToCalendar.addEventListener('click', () => {
+            document.getElementById('calendarSection').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        // Cho phép người dùng nhập tay hoặc chỉnh sửa trực tiếp các ngày vào ô input
+        selectedDaysInput.addEventListener('change', (e) => {
+            const rawParts = e.target.value.split(/[,;\s]+/);
+            const validDates = new Set();
+            let firstValidYear = null;
+
+            rawParts.forEach(part => {
+                const trimmed = part.trim();
+                // Hỗ trợ định dạng chuẩn YYYY-MM-DD
+                if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                    const d = new Date(trimmed + 'T00:00:00');
+                    if (!isNaN(d.getTime())) {
+                        validDates.add(trimmed);
+                        if (!firstValidYear) {
+                            firstValidYear = parseInt(trimmed.split('-')[0], 10);
+                        }
+                    }
+                }
+            });
+
+            selectedDates = validDates;
+
+            // Tự động chuyển năm hiển thị nếu ngày nhập vào thuộc năm khác
+            if (firstValidYear && firstValidYear !== selectedYear && firstValidYear > 1900 && firstValidYear < 2100) {
+                selectedYear = firstValidYear;
+                yearInput.value = selectedYear;
+                renderEventList();
+            }
+
+            updateSummary();
+            renderCalendar();
+        });
+
+        yearInput.addEventListener('change', (e) => {
+            const val = parseInt(e.target.value);
+            if (val && val > 1900 && val < 2100) {
+                selectedYear = val;
+                renderCalendar();
+                renderEventList();
+            }
+        });
+
+        function updateSummary() {
+            selectedDaysCount.textContent = `${selectedDates.size} ngày`;
+            selectedDaysInput.value = Array.from(selectedDates).sort().join(', ');
+        }
+
+        function formatLocalDateStr(year, monthIndex, day) {
+            const m = String(monthIndex + 1).padStart(2, '0');
+            const d = String(day).padStart(2, '0');
+            return `${year}-${m}-${d}`;
+        }
+
+        function renderCalendar() {
+            monthsGrid.innerHTML = '';
+            const yearEvents = events.filter(ev => ev.dates.some(d => d.startsWith(selectedYear.toString())));
+            totalEventsLegend.textContent = `${yearEvents.length} sự kiện`;
+
+            for (let m = 0; m < 12; m++) {
+                const monthDiv = document.createElement('div');
+                monthDiv.className = 'bg-slate-50/70 rounded-2xl p-4 border border-slate-100 flex flex-col';
+
+                const totalDaysInMonth = new Date(selectedYear, m + 1, 0).getDate();
+
+                const monthHeader = document.createElement('div');
+                monthHeader.className = 'flex items-center justify-between mb-3';
+                monthHeader.innerHTML = `
+                    <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">${monthNames[m]}</span>
+                    <span class="text-[11px] text-slate-400 font-medium">${totalDaysInMonth} ngày</span>
+                `;
+                monthDiv.appendChild(monthHeader);
+
+                const wdGrid = document.createElement('div');
+                wdGrid.className = 'grid grid-cols-7 gap-1 mb-1 text-center';
+                weekDays.forEach(wd => {
+                    const span = document.createElement('span');
+                    span.className = 'text-[10px] font-semibold text-slate-400';
+                    span.textContent = wd;
+                    wdGrid.appendChild(span);
+                });
+                monthDiv.appendChild(wdGrid);
+
+                const daysGrid = document.createElement('div');
+                daysGrid.className = 'grid grid-cols-7 gap-1';
+
+                let firstDayIndex = new Date(selectedYear, m, 1).getDay();
+                firstDayIndex = (firstDayIndex === 0) ? 6 : firstDayIndex - 1;
+
+                for (let i = 0; i < firstDayIndex; i++) {
+                    daysGrid.appendChild(document.createElement('div'));
+                }
+
+                for (let d = 1; d <= totalDaysInMonth; d++) {
+                    const dateStr = formatLocalDateStr(selectedYear, m, d);
+                    
+                    const dayCell = document.createElement('button');
+                    dayCell.type = 'button';
+                    dayCell.className = 'relative flex flex-col items-center justify-center p-1 rounded-xl text-xs transition h-10 border border-transparent';
+
+                    const isSelected = selectedDates.has(dateStr);
+                    const hasEvent = events.some(ev => ev.dates.includes(dateStr));
+
+                    if (isSelected) {
+                        dayCell.className += ' bg-blue-600 text-white font-bold shadow-sm';
+                    } else {
+                        dayCell.className += ' bg-white text-slate-700 hover:bg-blue-50 border-slate-100';
+                    }
+
+                    const solarSpan = document.createElement('span');
+                    solarSpan.className = 'text-[11px] leading-none font-semibold';
+                    solarSpan.textContent = d;
+                    dayCell.appendChild(solarSpan);
+
+                    const lunar = solarToLunar(selectedYear, m + 1, d);
+                    const lunarSpan = document.createElement('span');
+                    lunarSpan.className = `text-[9px] leading-none mt-1 ${isSelected ? 'text-blue-100' : 'text-slate-400'}`;
+                    lunarSpan.textContent = `${lunar.day}/${lunar.month}`;
+                    dayCell.appendChild(lunarSpan);
+
+                    if (hasEvent && !isSelected) {
+                        const dot = document.createElement('span');
+                        dot.className = 'absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full';
+                        dayCell.appendChild(dot);
+                    }
+
+                    dayCell.addEventListener('click', () => {
+                        if (selectedDates.has(dateStr)) {
+                            selectedDates.delete(dateStr);
+                        } else {
+                            selectedDates.add(dateStr);
+                        }
+                        updateSummary();
+                        renderCalendar();
+                    });
+
+                    daysGrid.appendChild(dayCell);
+                }
+
+                monthDiv.appendChild(daysGrid);
+                monthsGrid.appendChild(monthDiv);
+            }
+        }
+
+        eventForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const title = document.getElementById('eventTitle').value.trim();
+            if (!title) return;
+
+            if (selectedDates.size === 0) {
+                alert('Vui lòng nhập hoặc chọn ít nhất một ngày trên lịch!');
+                return;
+            }
+
+            const startTime = document.getElementById('eventStartTime').value;
+            const endTime = document.getElementById('eventEndTime').value;
+            const status = document.getElementById('eventStatus').value;
+            const transp = document.getElementById('eventTransp').value;
+            const category = document.getElementById('eventCategory').value.trim();
+            const alarm = document.getElementById('eventAlarm').value;
+            const location = document.getElementById('eventLocation').value.trim();
+            const url = document.getElementById('eventUrl').value.trim();
+            const desc = document.getElementById('eventDesc').value.trim();
+
+            const newDates = Array.from(selectedDates).sort();
+
+            if (currentEditingId) {
+                events = events.map(ev => {
+                    if (ev.id === currentEditingId) {
+                        return { ...ev, title, startTime, endTime, status, transp, category, alarm, location, url, desc, dates: newDates };
+                    }
+                    return ev;
+                });
+                currentEditingId = null;
+            } else {
+                const newEvent = {
+                    id: Date.now().toString(),
+                    title, startTime, endTime, status, transp, category, alarm, location, url, desc, dates: newDates
+                };
+                events.push(newEvent);
+            }
+
+            events = mergeDuplicateEvents(events);
+            saveAndResetForm();
+        });
+
+        function mergeDuplicateEvents(eventList) {
+            const map = {};
+            eventList.forEach(ev => {
+                const key = ev.title.toLowerCase();
+                if (!map[key]) {
+                    map[key] = { ...ev, dates: [...ev.dates] };
+                } else {
+                    const combinedDates = Array.from(new Set([...map[key].dates, ...ev.dates])).sort();
+                    map[key] = {
+                        ...map[key],
+                        dates: combinedDates,
+                        startTime: ev.startTime || map[key].startTime,
+                        endTime: ev.endTime || map[key].endTime,
+                        status: ev.status || map[key].status,
+                        transp: ev.transp || map[key].transp,
+                        category: ev.category || map[key].category,
+                        alarm: ev.alarm !== undefined ? ev.alarm : map[key].alarm,
+                        location: ev.location || map[key].location,
+                        url: ev.url || map[key].url,
+                        desc: ev.desc || map[key].desc
+                    };
+                }
+            });
+            return Object.values(map);
+        }
+
+        function saveAndResetForm() {
+            localStorage.setItem('calendar_events_v6', JSON.stringify(events));
+            eventForm.reset();
+            document.getElementById('eventStartTime').value = '09:00';
+            document.getElementById('eventEndTime').value = '10:00';
+            document.getElementById('eventStatus').value = 'CONFIRMED';
+            document.getElementById('eventTransp').value = 'OPAQUE';
+            document.getElementById('editingEventId').value = '';
+            currentEditingId = null;
+            selectedDates.clear();
+            document.getElementById('btnSaveEvent').textContent = '+ Thêm lịch';
+            updateSummary();
+            renderCalendar();
+            renderEventList();
+        }
+
+        btnClearForm.addEventListener('click', () => {
+            eventForm.reset();
+            selectedDates.clear();
+            currentEditingId = null;
+            document.getElementById('eventStartTime').value = '09:00';
+            document.getElementById('eventEndTime').value = '10:00';
+            document.getElementById('eventStatus').value = 'CONFIRMED';
+            document.getElementById('eventTransp').value = 'OPAQUE';
+            document.getElementById('btnSaveEvent').textContent = '+ Thêm lịch';
+            updateSummary();
+            renderCalendar();
+        });
+
+        btnCloseForm.addEventListener('click', () => {
+            eventForm.reset();
+            selectedDates.clear();
+            currentEditingId = null;
+            document.getElementById('btnSaveEvent').textContent = '+ Thêm lịch';
+            updateSummary();
+            renderCalendar();
+        });
+
+        function renderEventList() {
+            eventListContainer.innerHTML = '';
+            
+            const yearEvents = events.filter(ev => ev.dates.some(d => d.startsWith(selectedYear.toString())));
+
+            if (yearEvents.length === 0) {
+                eventListContainer.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-6">Chưa có sự kiện nào trong năm này.</p>`;
+                return;
+            }
+
+            yearEvents.forEach(ev => {
+                const card = document.createElement('div');
+                card.className = 'p-3.5 bg-slate-50 hover:bg-blue-50/50 border border-slate-200/80 rounded-xl transition flex flex-col justify-between';
+                
+                const topRow = document.createElement('div');
+                topRow.className = 'flex items-center justify-between';
+
+                const titleSpan = document.createElement('span');
+                titleSpan.className = 'text-xs font-bold text-slate-800 truncate cursor-pointer flex-1 mr-2';
+                titleSpan.textContent = ev.title;
+                titleSpan.addEventListener('click', () => loadEventToForm(ev));
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.type = 'button';
+                deleteBtn.className = 'text-slate-400 hover:text-red-600 p-1 transition';
+                deleteBtn.title = 'Xóa sự kiện';
+                deleteBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                `;
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (confirm(`Bạn có chắc muốn xóa sự kiện "${ev.title}"?`)) {
+                        events = events.filter(item => item.id !== ev.id);
+                        saveAndResetForm();
+                    }
+                });
+
+                topRow.appendChild(titleSpan);
+                topRow.appendChild(deleteBtn);
+                card.appendChild(topRow);
+
+                const bottomRow = document.createElement('div');
+                bottomRow.className = 'flex flex-wrap items-center gap-1.5 mt-2 cursor-pointer';
+                let badgesHtml = `
+                    <span class="text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200/60 px-2 py-0.5 rounded-md">${ev.startTime || '09:00'} - ${ev.endTime || '10:00'}</span>
+                    <span class="text-[10px] font-medium text-slate-600 bg-slate-200/60 border border-slate-300/60 px-2 py-0.5 rounded-md">${ev.dates.length} ngày</span>
+                `;
+                if (ev.category) {
+                    badgesHtml += `<span class="text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-md">${ev.category}</span>`;
+                }
+                bottomRow.innerHTML = badgesHtml;
+                bottomRow.addEventListener('click', () => loadEventToForm(ev));
+                card.appendChild(bottomRow);
+
+                eventListContainer.appendChild(card);
+            });
+        }
+
+        function loadEventToForm(ev) {
+            currentEditingId = ev.id;
+            document.getElementById('editingEventId').value = ev.id;
+            document.getElementById('eventTitle').value = ev.title;
+            document.getElementById('eventStartTime').value = ev.startTime || '09:00';
+            document.getElementById('eventEndTime').value = ev.endTime || '10:00';
+            document.getElementById('eventStatus').value = ev.status || 'CONFIRMED';
+            document.getElementById('eventTransp').value = ev.transp || 'OPAQUE';
+            document.getElementById('eventCategory').value = ev.category || '';
+            document.getElementById('eventAlarm').value = ev.alarm || '';
+            document.getElementById('eventLocation').value = ev.location || '';
+            document.getElementById('eventUrl').value = ev.url || '';
+            document.getElementById('eventDesc').value = ev.desc || '';
+
+            selectedDates = new Set(ev.dates);
+            updateSummary();
+            renderCalendar();
+            document.getElementById('btnSaveEvent').textContent = 'Cập nhật lịch';
+        }
+
+        // Escape ký tự đặc biệt theo chuẩn RFC 5545 của file ICS
+        function escapeIcsText(str) {
+            if (!str) return '';
+            return str
+                .replace(/\\/g, '\\\\')
+                .replace(/;/g, '\\;')
+                .replace(/,/g, '\\,')
+                .replace(/\r?\n/g, '\\n');
+        }
+
+        document.getElementById('btnExportIcs').addEventListener('click', () => {
+            if (events.length === 0) {
+                alert('Chưa có sự kiện nào để xuất lịch!');
+                return;
+            }
+
+            const lines = [
+                'BEGIN:VCALENDAR',
+                'VERSION:2.0',
+                'PRODID:-//Calendar Event Manager//VN',
+                'CALSCALE:GREGORIAN',
+                'METHOD:PUBLISH'
+            ];
+
+            const dtStamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+
+            events.forEach(ev => {
+                ev.dates.forEach(dateStr => {
+                    const dateFormatted = dateStr.replace(/-/g, '');
+                    const startDt = `${dateFormatted}T${(ev.startTime || '09:00').replace(':', '')}00`;
+                    const endDt = `${dateFormatted}T${(ev.endTime || '10:00').replace(':', '')}00`;
+
+                    lines.push('BEGIN:VEVENT');
+                    lines.push(`UID:${ev.id}-${dateFormatted}@calendar.app`);
+                    lines.push(`DTSTAMP:${dtStamp}`);
+                    lines.push(`DTSTART:${startDt}`);
+                    lines.push(`DTEND:${endDt}`);
+                    lines.push(`SUMMARY:${escapeIcsText(ev.title)}`);
+                    lines.push(`STATUS:${ev.status || 'CONFIRMED'}`);
+                    lines.push(`TRANSP:${ev.transp || 'OPAQUE'}`);
+                    
+                    if (ev.category) {
+                        lines.push(`CATEGORIES:${escapeIcsText(ev.category)}`);
+                    }
+                    if (ev.location) {
+                        lines.push(`LOCATION:${escapeIcsText(ev.location)}`);
+                    }
+                    if (ev.desc) {
+                        lines.push(`DESCRIPTION:${escapeIcsText(ev.desc)}`);
+                    }
+                    if (ev.url) {
+                        lines.push(`URL:${ev.url}`);
+                    }
+                    if (ev.alarm) {
+                        lines.push('BEGIN:VALARM');
+                        lines.push('ACTION:DISPLAY');
+                        lines.push(`DESCRIPTION:${escapeIcsText(ev.title)}`);
+                        lines.push(`TRIGGER:-PT${ev.alarm}M`);
+                        lines.push('END:VALARM');
+                    }
+
+                    lines.push('END:VEVENT');
+                });
+            });
+
+            lines.push('END:VCALENDAR');
+
+            // Chuẩn RFC 5545 yêu cầu sử dụng CRLF (\r\n)
+            const icsContent = lines.join('\r\n');
+
+            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = `su-kien-${selectedYear}.ics`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        renderCalendar();
+        renderEventList();
     </script>
 </body>
 </html>
